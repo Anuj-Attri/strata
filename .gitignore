@@ -1,0 +1,19 @@
+# Backend
+.venv/
+backend/__pycache__/
+backend/dist/
+backend/build/
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/.webpack/
+frontend/main.bundle.js
+frontend/main.bundle.js.map
+frontend/release/
+frontend/package-lock.json
+
+# IDE / OS
+.idea/
+.DS_Store
+*.log

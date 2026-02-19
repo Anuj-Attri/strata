@@ -4,7 +4,7 @@ import { theme } from './theme';
 import TensorHeatmap from './TensorHeatmap';
 import FileSizeModal from './FileSizeModal';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://127.0.0.1:8000';
 
 const sectionStyle = {
   padding: '16px 20px',
@@ -15,7 +15,7 @@ const labelStyle = {
   fontFamily: theme.font,
   fontSize: 10,
   letterSpacing: theme.tracking,
-  textTransform: 'uppercase' as const,
+  textTransform: 'uppercase',
   color: theme.secondary,
   marginBottom: 6,
   fontWeight: 300,

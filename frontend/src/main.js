@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 
 let mainWindow = null;
 let backendProcess = null;
+let windowShown = false;
 
 function getBackendPath() {
   if (app.isPackaged) {
@@ -12,31 +13,49 @@ function getBackendPath() {
   return path.join(__dirname, '../../backend/dist/strata_backend');
 }
 
+function showWindowIfReady() {
+  if (windowShown || !mainWindow || mainWindow.isDestroyed()) return;
+  windowShown = true;
+  mainWindow.show();
+}
+
 function startBackend() {
-  const backendPath = getBackendPath();
-  backendProcess = spawn(backendPath, [], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, PYTHONUNBUFFERED: '1' },
-  });
+  if (app.isPackaged) {
+    const backendPath = getBackendPath();
+    backendProcess = spawn(backendPath, [], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, PYTHONUNBUFFERED: '1' },
+    });
+  } else {
+    const repoRoot = path.join(__dirname, '../../..');
+    const fs = require('fs');
+    const venvUvicorn = path.join(repoRoot, '.venv', 'bin', 'uvicorn');
+    const uvicornCmd = fs.existsSync(venvUvicorn) ? venvUvicorn : 'uvicorn';
+    backendProcess = spawn(uvicornCmd, ['backend.main:app', '--host', '127.0.0.1', '--port', '8000'], {
+      cwd: repoRoot,
+      env: { ...process.env },
+      shell: uvicornCmd === 'uvicorn',
+    });
+  }
 
   let buffer = '';
   backendProcess.stdout.setEncoding('utf8');
-  backendProcess.stdout.on('data', (chunk) => {
-    buffer += chunk;
+  backendProcess.stdout.on('data', (data) => {
+    const line = data.toString();
+    console.log('[backend]', line);
+    buffer += line;
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (line.includes('Strata backend ready')) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.show();
-        }
+    for (const l of lines) {
+      if (l.includes('Strata backend ready') && !windowShown) {
+        showWindowIfReady();
       }
     }
   });
 
   backendProcess.stderr.setEncoding('utf8');
-  backendProcess.stderr.on('data', (chunk) => {
-    process.stderr.write(chunk);
+  backendProcess.stderr.on('data', (data) => {
+    console.error('[backend err]', data.toString());
   });
 
   backendProcess.on('error', (err) => {
@@ -46,6 +65,14 @@ function startBackend() {
   backendProcess.on('exit', (code, signal) => {
     backendProcess = null;
   });
+
+  if (!app.isPackaged) {
+    setTimeout(() => {
+      if (!windowShown && mainWindow && !mainWindow.isDestroyed()) {
+        showWindowIfReady();
+      }
+    }, 10000);
+  }
 }
 
 function createWindow() {

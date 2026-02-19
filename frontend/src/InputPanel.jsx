@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useStore } from './store';
 import { theme } from './theme';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://127.0.0.1:8000';
 
 function detectInputType(nodes) {
   if (!nodes || !Array.isArray(nodes)) return 'tensor';
