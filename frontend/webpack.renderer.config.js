@@ -1,6 +1,6 @@
 module.exports = {
   entry: './src/renderer.js',
-  target: 'electron-renderer',
+  target: 'web',
   output: {
     path: __dirname,
     filename: 'renderer.bundle.js',
