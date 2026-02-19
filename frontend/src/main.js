@@ -1,5 +1,5 @@
 const path = require('path');
-const { app, BrowserWindow, ipcMain, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, session } = require('electron');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
@@ -100,6 +100,17 @@ function createWindow() {
 app.whenReady().then(() => {
   startBackend();
   createWindow();
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data: blob:; connect-src 'self' http://127.0.0.1:8000 ws://127.0.0.1:8000 https://fonts.gstatic.com; img-src 'self' data: blob:;"
+        ]
+      }
+    });
+  });
 
   const loadUrl =
     process.env.MAIN_WINDOW_WEBPACK_ENTRY ||

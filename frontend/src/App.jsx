@@ -62,6 +62,7 @@ export default function App() {
         throw new Error(err.detail || res.statusText);
       }
       const graph = await res.json();
+      console.log('Graph data:', JSON.stringify(graph, null, 2));
       setModelGraph(graph);
     } catch (e) {
       console.error(e);

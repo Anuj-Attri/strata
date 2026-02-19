@@ -5,55 +5,14 @@ import * as THREE from 'three';
 import { useStore } from './store';
 import { theme } from './theme';
 
-function buildLayout(nodes, edges) {
-  const nodeMap = new Map(nodes.map((n) => [n.id, { ...n, depth: 0, children: [] }]));
-  const inDegree = new Map(nodes.map((n) => [n.id, 0]));
-  edges.forEach((e) => {
-    const d = inDegree.get(e.to) ?? 0;
-    inDegree.set(e.to, d + 1);
-  });
-  const roots = nodes.filter((n) => inDegree.get(n.id) === 0).map((n) => n.id);
-  const queue = roots.map((id) => ({ id, depth: 0 }));
-  const visited = new Set(roots);
-  while (queue.length) {
-    const { id, depth } = queue.shift();
-    const node = nodeMap.get(id);
-    if (node) node.depth = depth;
-    edges.forEach((e) => {
-      if (e.from !== id) return;
-      if (!visited.has(e.to)) {
-        visited.add(e.to);
-        queue.push({ id: e.to, depth: depth + 1 });
-      }
-    });
-  }
-  const byDepth = new Map();
-  nodeMap.forEach((node) => {
-    const d = node.depth;
-    if (!byDepth.has(d)) byDepth.set(d, []);
-    byDepth.get(d).push(node.id);
-  });
+function buildLayout(nodes) {
   const positions = {};
-  const depthCounts = new Map();
-  [...byDepth.keys()].sort((a, b) => a - b).forEach((depth) => {
-    const ids = byDepth.get(depth);
-    const n = ids.length;
-    depthCounts.set(depth, n);
-    const spacing = Math.max(2.5, n * 1.2);
-    const startX = -((n - 1) * spacing) / 2;
-    ids.forEach((id, i) => {
-      let y = 0;
-      const node = nodeMap.get(id);
-      const childCount = edges.filter((e) => e.from === id).length;
-      if (childCount > 1) y = (i - (n - 1) / 2) * 1.5;
-      positions[id] = [
-        startX + i * spacing,
-        y,
-        depth * -4,
-      ];
-    });
+  nodes.forEach((node, index) => {
+    const col = index % 10;
+    const row = Math.floor(index / 10);
+    positions[node.id] = [col * 3 - 15, row * -3 + 15, 0];
   });
-  return { positions, nodeMap: Object.fromEntries(nodeMap) };
+  return positions;
 }
 
 function Node({ id, name, typeName, position, selected, onSelect, hasFired, positions, controlsRef }) {
@@ -98,7 +57,7 @@ function Node({ id, name, typeName, position, selected, onSelect, hasFired, posi
   return (
     <group ref={groupRef} position={position} onDoubleClick={handleDoubleClick}>
       <RoundedBox
-        args={[1.8, 0.8, 0.1]}
+        args={[4, 2, 0.5]}
         radius={0}
         ref={meshRef}
         onClick={(e) => {
@@ -111,13 +70,9 @@ function Node({ id, name, typeName, position, selected, onSelect, hasFired, posi
         }}
         onPointerOut={() => setHovered(false)}
       >
-        <meshBasicMaterial
-          color={theme.primary}
-          wireframe={!filled}
-          transparent={hasFired && !isSelected}
-          opacity={hasFired && !isSelected ? 0.9 : 1}
-        />
+        <meshBasicMaterial color="#ffffff" wireframe={false} />
       </RoundedBox>
+      {/* Labels removed temporarily — restore after nodes confirmed visible
       {hovered && (
         <pointLight position={[0, 0, 0.5]} intensity={2} color="#FFFFFF" distance={3} />
       )}
@@ -142,6 +97,7 @@ function Node({ id, name, typeName, position, selected, onSelect, hasFired, posi
       >
         {typeName}
       </Text>
+      */}
     </group>
   );
 }
@@ -179,11 +135,17 @@ function Scene({ nodes, edges, positions, selected, onSelect, layerOrder, contro
     <>
       <OrbitControls
         ref={controlsRef}
+        target={[0, 0, -20]}
+        makeDefault
         enableDamping
         dampingFactor={0.05}
         minDistance={5}
         maxDistance={120}
       />
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[5, 16, 16]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
       {nodes.map((n) => (
         <Node
           key={n.id}
@@ -212,15 +174,16 @@ export default function GraphView() {
   const controlsRef = useRef(null);
   const nodes = modelGraph?.nodes ?? [];
   const edges = modelGraph?.edges ?? [];
-  const { positions } = useMemo(
-    () => (nodes.length ? buildLayout(nodes, edges) : { positions: {} }),
-    [nodes, edges]
+  console.log('Nodes received:', nodes?.length, nodes);
+  const positions = useMemo(
+    () => (nodes.length ? buildLayout(nodes) : {}),
+    [nodes]
   );
 
   const resetView = () => {
     if (controlsRef.current) {
-      controlsRef.current.target.set(0, 0, 0);
-      controlsRef.current.object.position.set(0, 0, 40);
+      controlsRef.current.target.set(0, 0, -20);
+      controlsRef.current.object.position.set(0, 0, 80);
       controlsRef.current.update();
     }
   };
@@ -228,7 +191,7 @@ export default function GraphView() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', background: theme.bg }}>
       <Canvas
-        camera={{ position: [0, 0, 40], fov: 50 }}
+        camera={{ position: [0, 0, 80], fov: 75, near: 0.1, far: 1000 }}
         gl={{ antialias: true }}
         style={{ background: '#000000' }}
         onCreated={({ gl }) => {
