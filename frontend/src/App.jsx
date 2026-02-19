@@ -80,9 +80,7 @@ export default function App() {
     }
   };
 
-  const modelName = modelGraph
-    ? `${modelGraph.model_type?.toUpperCase() || 'Model'} • ${(modelGraph.total_params ?? 0).toLocaleString()} params`
-    : '';
+  const modelLabel = modelGraph ? (modelGraph.model_type?.toUpperCase() || 'MODEL') : '';
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: theme.bg }}>
@@ -147,7 +145,7 @@ export default function App() {
             textTransform: 'uppercase',
           }}
         >
-          {modelName}
+          {modelLabel}
         </span>
       </header>
 
