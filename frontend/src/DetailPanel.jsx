@@ -27,32 +27,48 @@ const valueStyle = {
   fontSize: 13,
 };
 
+function cleanForMatch(s) {
+  return s?.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || '';
+}
+
 export default function DetailPanel() {
   const { selectedLayerId, inferenceCache, modelGraph } = useStore();
-  const record = selectedLayerId
-    ? inferenceCache[selectedLayerId] ||
-      inferenceCache[selectedLayerId?.replace(/[^a-zA-Z0-9_]/g, '_')] ||
-      (Object.keys(inferenceCache).length ? Object.values(inferenceCache)[0] : null)
+  const selectedNode = selectedLayerId
+    ? modelGraph?.nodes?.find((n) => n.id === selectedLayerId)
     : null;
-  console.log('Selected record:', record);
+  const record =
+    selectedLayerId == null
+      ? null
+      : inferenceCache[selectedLayerId] ||
+        inferenceCache[selectedLayerId?.replace(/[^a-zA-Z0-9_]/g, '_')] ||
+        (() => {
+          const nodeName = selectedNode?.name?.split('/').pop();
+          return Object.values(inferenceCache).find((r) => {
+            const rClean = cleanForMatch(r.name);
+            const nClean = cleanForMatch(nodeName);
+            return nClean && rClean && rClean.includes(nClean);
+          }) ?? null;
+        })();
   const [estimateSize, setEstimateSize] = useState({ bytes: 0, human_readable: '0 B' });
   const [showFileSizeModal, setShowFileSizeModal] = useState(false);
   const [copyStatus, setCopyStatus] = useState(false);
 
+  const layerIdToFetch = record?.layer_id ?? selectedLayerId;
+
   useEffect(() => {
-    if (!selectedLayerId) return;
-    fetch(`${API_BASE}/estimate-size?layer_id=${encodeURIComponent(selectedLayerId)}`)
-      .then((r) => r.ok ? r.json() : { bytes: 0, human_readable: '0 B' })
+    if (!layerIdToFetch) return;
+    fetch(`${API_BASE}/estimate-size?layer_id=${encodeURIComponent(layerIdToFetch)}`)
+      .then((r) => (r.ok ? r.json() : { bytes: 0, human_readable: '0 B' }))
       .then(setEstimateSize)
       .catch(() => setEstimateSize({ bytes: 0, human_readable: '0 B' }));
-  }, [selectedLayerId]);
+  }, [layerIdToFetch]);
 
   const handleSaveToFile = async () => {
     setShowFileSizeModal(true);
   };
 
   const handleConfirmExport = async () => {
-    if (!selectedLayerId || !window.strata?.saveFile) return;
+    if (!layerIdToFetch || !window.strata?.saveFile) return;
     const result = await window.strata.saveFile();
     if (result.canceled || !result.filePath) {
       setShowFileSizeModal(false);
@@ -62,7 +78,7 @@ export default function DetailPanel() {
       const res = await fetch(`${API_BASE}/save-tensor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer_id: selectedLayerId, path: result.filePath }),
+        body: JSON.stringify({ layer_id: layerIdToFetch, path: result.filePath }),
       });
       if (!res.ok) throw new Error((await res.json()).detail || 'Save failed');
       setShowFileSizeModal(false);
@@ -73,12 +89,12 @@ export default function DetailPanel() {
   };
 
   const handleCopyJson = async () => {
-    if (!selectedLayerId) return;
+    if (!layerIdToFetch) return;
     try {
       const res = await fetch(`${API_BASE}/copy-tensor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layer_id: selectedLayerId }),
+        body: JSON.stringify({ layer_id: layerIdToFetch }),
       });
       if (!res.ok) throw new Error('Copy failed');
       const json = await res.json();
@@ -113,58 +129,61 @@ export default function DetailPanel() {
 
   const hasInference = record != null;
   const stats = record?.stats || {};
-  const inputShape = record?.input_shape ?? [];
-  const outputShape = record?.output_shape ?? [];
+  const inputShape = record?.input_shape ?? selectedNode?.input_dims ?? [];
+  const outputShape = record?.output_shape ?? selectedNode?.output_dims ?? [];
 
   return (
     <div style={{ height: '100%', overflow: 'auto', background: '#050505' }}>
       <div style={{ ...sectionStyle, borderLeft: '2px solid #FFFFFF' }}>
-        <div style={labelStyle}>
-          Layer
-        </div>
-        <div style={valueStyle}>{record?.name ?? selectedLayerId}</div>
+        <div style={labelStyle}>Layer</div>
+        <div style={valueStyle}>{selectedNode?.name ?? record?.name ?? selectedLayerId}</div>
         <div style={{ ...labelStyle, marginTop: 12, display: 'flex', alignItems: 'center' }}>
-          Type <InfoIcon tooltip="The kind of mathematical operation this layer performs, e.g. Conv2d applies a sliding filter across an image." />
+          Type <InfoIcon tooltip="The kind of mathematical operation this layer performs." />
         </div>
-        <div style={valueStyle}>{record?.type ?? '—'}</div>
+        <div style={valueStyle}>{selectedNode?.type ?? record?.type ?? '—'}</div>
         <div style={{ ...labelStyle, marginTop: 12, display: 'flex', alignItems: 'center' }}>
-          Param count <InfoIcon tooltip="The number of learnable values inside this layer. More params = more capacity to learn complex patterns." />
+          Param count <InfoIcon tooltip="The number of learnable values inside this layer." />
         </div>
-        <div style={valueStyle}>{(record?.param_count ?? 0).toLocaleString()}</div>
+        <div style={valueStyle}>
+          {(selectedNode?.param_count ?? record?.param_count ?? 0).toLocaleString()}
+        </div>
         <div style={{ ...labelStyle, marginTop: 8 }}>Trainable params</div>
-        <div style={valueStyle}>{(record?.trainable_params ?? 0).toLocaleString()}</div>
+        <div style={valueStyle}>
+          {(selectedNode?.trainable_params ?? record?.trainable_params ?? 0).toLocaleString()}
+        </div>
+        {(inputShape?.length > 0 || outputShape?.length > 0) && (
+          <>
+            <div style={{ ...labelStyle, marginTop: 12 }}>Input shape</div>
+            <div style={valueStyle}>[{inputShape.join(', ')}]</div>
+            <div style={{ ...labelStyle, marginTop: 8 }}>Output shape</div>
+            <div style={valueStyle}>[{outputShape.join(', ')}]</div>
+          </>
+        )}
       </div>
 
       {hasInference && (
         <>
           <div style={sectionStyle}>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-              Input shape <InfoIcon tooltip="Shape describes the dimensions of the data entering this layer. For example [1, 64, 224, 224] = 1 image, 64 channels, 224×224 pixels." />
-            </div>
-            <div style={valueStyle}>[{inputShape.join(', ')}]</div>
-            <div style={{ ...labelStyle, marginTop: 12, display: 'flex', alignItems: 'center' }}>
-              Output shape <InfoIcon tooltip="Shape of the data leaving this layer after the operation is applied." />
-            </div>
-            <div style={valueStyle}>[{outputShape.join(', ')}]</div>
-          </div>
-
-          <div style={sectionStyle}>
-            <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-              Statistics <InfoIcon tooltip="Computed from the complete output tensor of this layer. No values are approximated or truncated." />
+              Statistics <InfoIcon tooltip="From the output tensor of this layer after inference." />
             </div>
             <div style={valueStyle}>
               Mean: {(stats.mean ?? 0).toFixed(8)}<br />
-              Std:  {(stats.std ?? 0).toFixed(8)}<br />
-              Min:  {(stats.min ?? 0).toFixed(8)}<br />
-              Max:  {(stats.max ?? 0).toFixed(8)}
+              Std: {(stats.std ?? 0).toFixed(8)}<br />
+              Min: {(stats.min ?? 0).toFixed(8)}<br />
+              Max: {(stats.max ?? 0).toFixed(8)}
             </div>
           </div>
 
           <div style={sectionStyle}>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-              Output tensor heatmap <InfoIcon tooltip="A visual map of every value in this layer's output tensor. Brighter = higher value. Computed from complete, untruncated data." />
+              Output tensor heatmap <InfoIcon tooltip="Per-channel feature map view." />
             </div>
-            <FeatureMapGrid tensor={record?.output_tensor} outputShape={record?.output_shape} stats={record?.stats} />
+            <FeatureMapGrid
+              tensor={record?.output_tensor}
+              outputShape={record?.output_shape}
+              stats={record?.stats}
+            />
           </div>
         </>
       )}

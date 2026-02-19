@@ -27,7 +27,10 @@ export default function App() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data === null) return;
+        if (data === null) {
+          setRunning(false);
+          return;
+        }
         const raw = data.layer_id ?? '';
         const sanitized = raw.replace(/[^a-zA-Z0-9_]/g, '_');
         addToCache(raw || 'layer', data);
@@ -37,7 +40,9 @@ export default function App() {
             new CustomEvent('strata:layer-fired', { detail: { layer_id: data.layer_id } })
           );
         }
-      } catch (_) {}
+      } catch (_) {
+        setRunning(false);
+      }
     };
 
     ws.onclose = () => setRunning(false);
@@ -53,6 +58,8 @@ export default function App() {
     if (!window.strata?.openFile) return;
     const result = await window.strata.openFile();
     if (result.canceled || !result.filePaths?.length) return;
+    clearCache();
+    setLayerOrder([]);
     const path = result.filePaths[0];
     try {
       const res = await fetch(`${API_BASE}/load-model`, {

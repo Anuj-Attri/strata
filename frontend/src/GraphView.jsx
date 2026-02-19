@@ -42,15 +42,15 @@ function makeTextTexture(line1, line2) {
   canvas.width = 256;
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, 256, 128);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 22px monospace';
+  ctx.fillRect(0, 0, 256, 128);
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 24px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(line1?.slice(0, 16) || '', 128, 45);
-  ctx.fillStyle = '#888888';
+  ctx.fillText((line1 || 'OP').slice(0, 14), 128, 50);
+  ctx.fillStyle = '#444444';
   ctx.font = '16px monospace';
-  ctx.fillText(line2?.slice(0, 22) || '', 128, 80);
+  ctx.fillText((line2 || '').slice(0, 22), 128, 85);
   return new THREE.CanvasTexture(canvas);
 }
 
@@ -116,17 +116,15 @@ function makeTensorTexture(outputTensor, outputShape) {
 }
 
 function GraphNode({ node, position, isSelected, hasFired, record, onSelect }) {
-  const typeLabel = node.type?.toUpperCase() || 'OP';
-  const nameLabel = node.name?.split('/').pop()?.slice(0, 18) || '';
-
   const texture = useMemo(() => {
     if (record?.output_tensor != null && record?.output_shape?.length) {
       return makeTensorTexture(record.output_tensor, record.output_shape);
     }
-    return makeTextTexture(typeLabel, nameLabel);
-  }, [record?.output_tensor, record?.output_shape, typeLabel, nameLabel]);
-
-  const color = getNodeColor(node.type, isSelected, hasFired);
+    return makeTextTexture(
+      node.type?.toUpperCase() || 'OP',
+      node.name?.split('/').pop()?.slice(0, 20) || ''
+    );
+  }, [node.type, node.name, record?.output_tensor, record?.output_shape]);
 
   const selectNode = (e) => {
     e.stopPropagation();
@@ -136,12 +134,12 @@ function GraphNode({ node, position, isSelected, hasFired, record, onSelect }) {
   return (
     <group position={position}>
       <mesh position={[0, 0, 0.06]} onPointerDown={selectNode}>
-        <planeGeometry args={[2.3, 1.1]} />
+        <planeGeometry args={[2.9, 1.3]} />
         <meshBasicMaterial map={texture} transparent={false} />
       </mesh>
-      <mesh position={[0, 0, -0.04]} onPointerDown={selectNode}>
-        <boxGeometry args={[2.2, 1.05, 0.08]} />
-        <meshBasicMaterial color={color} />
+      <mesh position={[0, 0, -0.06]} onPointerDown={selectNode}>
+        <boxGeometry args={[3, 1.4, 0.12]} />
+        <meshBasicMaterial color="#111111" />
       </mesh>
     </group>
   );
@@ -250,9 +248,18 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
       />
       {visibleNodes.map((node) => {
         const pos = positions[node.id] || [0, 0, 0];
-        const record =
+        let record =
           inferenceCache[node.id] ||
           inferenceCache[node.id?.replace(/[^a-zA-Z0-9_]/g, '_')];
+        if (!record) {
+          const nodeName = node.name?.split('/').pop();
+          const clean = (s) => s?.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || '';
+          const nClean = clean(nodeName);
+          record = Object.values(inferenceCache).find((r) => {
+            const rClean = clean(r.name);
+            return nClean && rClean && rClean.includes(nClean);
+          }) ?? null;
+        }
         return (
           <GraphNode
             key={node.id}

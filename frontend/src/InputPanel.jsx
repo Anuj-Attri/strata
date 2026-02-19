@@ -210,13 +210,33 @@ export default function InputPanel() {
             />
             <div style={{ fontSize: 10, color: theme.secondary, letterSpacing: theme.tracking, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
               RAW TENSOR INPUT
-              <InfoIcon tooltip="Enter comma-separated float values. They will be shaped to match your model's expected input." />
+              <InfoIcon tooltip="This model expects raw numeric input. Enter values separated by commas." />
             </div>
           </>
         )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <button
+          type="button"
+          onClick={() => {
+            clearCache();
+            setLayerOrder([]);
+          }}
+          style={{
+            background: 'transparent',
+            border: '1px solid #333',
+            color: '#666',
+            padding: '10px 16px',
+            cursor: 'pointer',
+            letterSpacing: '0.15em',
+            fontSize: 11,
+            fontFamily: 'inherit',
+            marginRight: 8,
+          }}
+        >
+          CLEAR
+        </button>
         <button
           type="button"
           onClick={runInference}

@@ -198,7 +198,22 @@ def run_onnx_inference(
 
     if model_path:
         inter_session, output_names = build_intermediate_session(model_path)
-        results = inter_session.run(None, input_dict)
+        # Build input_dict for all session inputs (user provides first; rest get zeros)
+        all_inputs = inter_session.get_inputs()
+        inter_input_dict: dict[str, np.ndarray] = {}
+        for idx, inp_meta in enumerate(all_inputs):
+            if idx == 0:
+                arr = prepared_input.detach().cpu().numpy()
+                if arr.dtype != np.float32 and arr.dtype != np.float64:
+                    arr = arr.astype(np.float32)
+                inter_input_dict[inp_meta.name] = arr
+            else:
+                shape = getattr(inp_meta, "shape", []) or []
+                shape = [s if isinstance(s, int) and s > 0 else 1 for s in shape]
+                if not shape:
+                    shape = [1]
+                inter_input_dict[inp_meta.name] = np.zeros(shape, dtype=np.float32)
+        results = inter_session.run(None, inter_input_dict)
         layer_ids: list[str] = []
         for i, (name, arr) in enumerate(zip(output_names, results)):
             if arr is None:

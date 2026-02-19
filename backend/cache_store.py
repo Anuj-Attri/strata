@@ -32,12 +32,16 @@ def get(layer_id: str) -> dict[str, Any] | None:
 
 
 def get_any(layer_id: str) -> dict[str, Any] | None:
-    """Try layer_id, then sanitized key (so graph node ids can match cache)."""
-    out = inference_cache.get(layer_id)
-    if out is not None:
-        return out
-    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", layer_id)
-    return inference_cache.get(sanitized)
+    """Try raw key, then sanitized, then partial name match."""
+    if layer_id in inference_cache:
+        return inference_cache[layer_id]
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", layer_id).strip("_")
+    if sanitized in inference_cache:
+        return inference_cache[sanitized]
+    for key, val in inference_cache.items():
+        if layer_id in key or (sanitized and sanitized in key):
+            return val
+    return None
 
 
 def get_stats(arr: np.ndarray) -> dict[str, float]:
