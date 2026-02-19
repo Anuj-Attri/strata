@@ -6,6 +6,7 @@ No truncation anywhere — stores complete arrays.
 
 from __future__ import annotations
 
+import re
 import numpy as np
 from typing import Any
 
@@ -28,6 +29,15 @@ def put(layer_id: str, record: dict[str, Any]) -> None:
 def get(layer_id: str) -> dict[str, Any] | None:
     """Retrieve the full LayerRecord for a layer, or None if not present."""
     return inference_cache.get(layer_id)
+
+
+def get_any(layer_id: str) -> dict[str, Any] | None:
+    """Try layer_id, then sanitized key (so graph node ids can match cache)."""
+    out = inference_cache.get(layer_id)
+    if out is not None:
+        return out
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", layer_id)
+    return inference_cache.get(sanitized)
 
 
 def get_stats(arr: np.ndarray) -> dict[str, float]:

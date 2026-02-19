@@ -11,11 +11,11 @@ export const useStore = create((set) => ({
 
   setSelectedLayer: (selectedLayerId) => set({ selectedLayerId }),
 
-  addToCache: (record) =>
+  addToCache: (key, record) =>
     set((state) => ({
       inferenceCache: {
         ...state.inferenceCache,
-        [record.layer_id]: record,
+        [key]: record,
       },
     })),
 

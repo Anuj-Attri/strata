@@ -61,6 +61,7 @@ def startup() -> None:
     app.state.model = None
     app.state.model_graph = {}
     app.state.model_type = None
+    app.state.model_path = None
     app.state.stream_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
     print("Strata backend ready", flush=True)
 
@@ -94,6 +95,7 @@ async def load_model_route(body: LoadModelBody) -> dict[str, Any]:
             app.state.model = obj
         elif suffix == ".onnx":
             app.state.model = onnxruntime.InferenceSession(str(path))
+            app.state.model_path = str(path)
         else:
             raise ValueError("Unsupported format.")
         return graph
@@ -116,6 +118,7 @@ async def run_inference_route(body: RunInferenceBody) -> dict[str, Any]:
             "model": app.state.model,
             "model_graph": app.state.model_graph,
             "model_type": app.state.model_type,
+            "model_path": getattr(app.state, "model_path", None),
         }
         layer_ids = await loop.run_in_executor(
             None,
@@ -156,7 +159,7 @@ async def ws_stream(websocket: WebSocket) -> None:
 async def save_tensor_route(body: SaveTensorBody) -> dict[str, Any]:
     """Write the full layer record (no truncation) to a .txt file at the given path."""
     try:
-        record = cache_store.get(body.layer_id)
+        record = cache_store.get_any(body.layer_id)
         if record is None:
             raise HTTPException(status_code=404, detail="Layer not found in cache.")
         stats = record.get("stats") or {}
@@ -216,7 +219,7 @@ async def save_tensor_route(body: SaveTensorBody) -> dict[str, Any]:
 async def copy_tensor_route(body: CopyTensorBody) -> dict[str, Any]:
     """Return the full layer record as JSON with tensors serialized as lists for clipboard."""
     try:
-        record = cache_store.get(body.layer_id)
+        record = cache_store.get_any(body.layer_id)
         if record is None:
             raise HTTPException(status_code=404, detail="Layer not found in cache.")
         out: dict[str, Any] = {k: v for k, v in record.items() if k not in ("input_tensor", "output_tensor")}
@@ -235,7 +238,7 @@ async def copy_tensor_route(body: CopyTensorBody) -> dict[str, Any]:
 async def estimate_size_route(layer_id: str = Query(..., alias="layer_id")) -> dict[str, Any]:
     """Return estimated byte size and human-readable string for exporting this layer's tensors."""
     try:
-        record = cache_store.get(layer_id)
+        record = cache_store.get_any(layer_id)
         if record is None:
             raise HTTPException(status_code=404, detail="Layer not found in cache.")
         inp = record.get("input_tensor")

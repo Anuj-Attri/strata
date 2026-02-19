@@ -1,15 +1,25 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from './store';
 import { theme } from './theme';
+import InfoIcon from './InfoIcon';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
 function detectInputType(nodes) {
   if (!nodes || !Array.isArray(nodes)) return 'tensor';
-  const types = nodes.map((n) => (n.type || '').toLowerCase()).join(' ');
-  if (types.includes('conv')) return 'image';
-  if (types.includes('embedding') || types.includes('attention')) return 'text';
-  return 'tensor';
+  const isVision = nodes.some(
+    (n) =>
+      n.type?.toLowerCase().includes('conv') ||
+      n.name?.toLowerCase().includes('conv')
+  );
+  const isNLP = nodes.some(
+    (n) =>
+      n.type?.toLowerCase().includes('attention') ||
+      n.type?.toLowerCase().includes('embed') ||
+      n.name?.toLowerCase().includes('attention') ||
+      n.name?.toLowerCase().includes('embed')
+  );
+  return isVision ? 'image' : isNLP ? 'text' : 'tensor';
 }
 
 export default function InputPanel() {
@@ -110,7 +120,7 @@ export default function InputPanel() {
         alignItems: 'center',
         gap: 24,
         borderTop: `1px solid ${theme.border}`,
-        background: theme.bg,
+        background: 'linear-gradient(0deg, #0a0a0a 0%, #000000 100%)',
       }}
     >
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
@@ -154,7 +164,7 @@ export default function InputPanel() {
             />
             <div style={{ fontSize: 10, color: theme.secondary, letterSpacing: theme.tracking, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
               DROP AN IMAGE — .jpg .png .bmp
-              <span title="Your image will be resized to 224×224 and normalized automatically." style={{ cursor: 'help' }}>(i)</span>
+              <InfoIcon tooltip="Your image will be resized to match the model's expected input size and normalized automatically." />
             </div>
           </>
         )}
@@ -177,7 +187,7 @@ export default function InputPanel() {
             />
             <div style={{ fontSize: 10, color: theme.secondary, letterSpacing: theme.tracking, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
               ENTER TEXT
-              <span title="Text is tokenized automatically using a BERT-compatible tokenizer." style={{ cursor: 'help' }}>(i)</span>
+              <InfoIcon tooltip="Text is tokenized automatically using a BERT-compatible tokenizer." />
             </div>
           </>
         )}
@@ -200,7 +210,7 @@ export default function InputPanel() {
             />
             <div style={{ fontSize: 10, color: theme.secondary, letterSpacing: theme.tracking, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
               RAW TENSOR INPUT
-              <span title="Enter comma-separated float values. They will be shaped to match your model's expected input." style={{ cursor: 'help' }}>(i)</span>
+              <InfoIcon tooltip="Enter comma-separated float values. They will be shaped to match your model's expected input." />
             </div>
           </>
         )}
@@ -211,7 +221,6 @@ export default function InputPanel() {
           type="button"
           onClick={runInference}
           disabled={!canRun}
-          title="Runs your input through every layer of the model and captures the full tensor output at each stage."
           style={{
             width: 200,
             height: 56,
@@ -243,7 +252,7 @@ export default function InputPanel() {
         >
           {isRunning ? 'Running…' : 'Run inference'}
         </button>
-        <span title="Runs your input through every layer of the model and captures the full tensor output at each stage." style={{ marginLeft: 8, color: theme.secondary, cursor: 'help', fontSize: 10 }}>(i)</span>
+        <InfoIcon tooltip="Runs your input through every layer of the model and captures the full tensor output at each stage." />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { theme } from './theme';
+import InfoIcon from './InfoIcon';
 
 const STORAGE_KEY = 'strata_onboarded';
 
@@ -104,10 +105,7 @@ export default function OnboardingFlow() {
           {s.body}
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 32 }}>
-          <span style={{ color: theme.secondary, fontSize: 12 }}>(i)</span>
-          <span style={{ color: theme.secondary, fontSize: 12, maxWidth: 400 }} title={s.tooltip}>
-            {s.tooltip}
-          </span>
+          <InfoIcon tooltip={s.tooltip} />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 40 }}>

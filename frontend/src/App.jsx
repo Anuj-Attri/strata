@@ -28,7 +28,10 @@ export default function App() {
       try {
         const data = JSON.parse(event.data);
         if (data === null) return;
-        addToCache(data);
+        const raw = data.layer_id ?? '';
+        const sanitized = raw.replace(/[^a-zA-Z0-9_]/g, '_');
+        addToCache(raw || 'layer', data);
+        if (sanitized) addToCache(sanitized, data);
         if (data.layer_id) {
           window.dispatchEvent(
             new CustomEvent('strata:layer-fired', { detail: { layer_id: data.layer_id } })
@@ -79,24 +82,24 @@ export default function App() {
       <OnboardingFlow />
       <header
         style={{
-          height: 48,
-          minHeight: 48,
-          borderBottom: `1px solid ${theme.border}`,
+          height: 64,
+          minHeight: 64,
+          borderBottom: '1px solid #1a1a1a',
           display: 'flex',
           alignItems: 'center',
           paddingLeft: 24,
           paddingRight: 24,
-          background: theme.bg,
+          background: 'linear-gradient(180deg, #0a0a0a 0%, #000000 100%)',
         }}
       >
         <span
           style={{
             fontFamily: theme.font,
-            fontWeight: 100,
-            letterSpacing: theme.tracking,
+            fontWeight: 200,
+            letterSpacing: '0.2em',
             color: theme.primary,
             textTransform: 'uppercase',
-            fontSize: 14,
+            fontSize: 22,
           }}
         >
           STRATA
@@ -106,13 +109,13 @@ export default function App() {
           onClick={handleLoadModel}
           style={{
             marginLeft: 24,
-            padding: '6px 12px',
+            padding: '10px 24px',
             background: theme.bg,
             border: `1px solid ${theme.border}`,
             color: theme.primary,
             fontFamily: theme.font,
-            fontSize: 11,
-            letterSpacing: theme.tracking,
+            fontSize: 13,
+            letterSpacing: '0.15em',
             textTransform: 'uppercase',
             cursor: 'pointer',
           }}
@@ -125,7 +128,7 @@ export default function App() {
             e.currentTarget.style.borderColor = theme.border;
           }}
         >
-          Load model
+          LOAD MODEL
         </button>
         <span
           style={{

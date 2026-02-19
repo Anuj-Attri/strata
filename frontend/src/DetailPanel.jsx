@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from './store';
 import { theme } from './theme';
-import TensorHeatmap from './TensorHeatmap';
+import FeatureMapGrid from './FeatureMapGrid';
 import FileSizeModal from './FileSizeModal';
+import InfoIcon from './InfoIcon';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
 const sectionStyle = {
   padding: '16px 20px',
-  borderBottom: `1px solid ${theme.border}`,
+  borderBottom: '1px solid #111111',
 };
 
 const labelStyle = {
@@ -26,20 +27,14 @@ const valueStyle = {
   fontSize: 13,
 };
 
-function InfoIcon({ title }) {
-  return (
-    <span
-      title={title}
-      style={{ marginLeft: 6, cursor: 'help', color: theme.secondary, fontSize: 10 }}
-    >
-      (i)
-    </span>
-  );
-}
-
 export default function DetailPanel() {
   const { selectedLayerId, inferenceCache, modelGraph } = useStore();
-  const record = selectedLayerId ? inferenceCache[selectedLayerId] : null;
+  const record = selectedLayerId
+    ? inferenceCache[selectedLayerId] ||
+      inferenceCache[selectedLayerId?.replace(/[^a-zA-Z0-9_]/g, '_')] ||
+      (Object.keys(inferenceCache).length ? Object.values(inferenceCache)[0] : null)
+    : null;
+  console.log('Selected record:', record);
   const [estimateSize, setEstimateSize] = useState({ bytes: 0, human_readable: '0 B' });
   const [showFileSizeModal, setShowFileSizeModal] = useState(false);
   const [copyStatus, setCopyStatus] = useState(false);
@@ -122,18 +117,18 @@ export default function DetailPanel() {
   const outputShape = record?.output_shape ?? [];
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', background: theme.bg }}>
-      <div style={sectionStyle}>
+    <div style={{ height: '100%', overflow: 'auto', background: '#050505' }}>
+      <div style={{ ...sectionStyle, borderLeft: '2px solid #FFFFFF' }}>
         <div style={labelStyle}>
           Layer
         </div>
         <div style={valueStyle}>{record?.name ?? selectedLayerId}</div>
         <div style={{ ...labelStyle, marginTop: 12, display: 'flex', alignItems: 'center' }}>
-          Type <InfoIcon title="The kind of mathematical operation this layer performs, e.g. Conv2d applies a sliding filter across an image." />
+          Type <InfoIcon tooltip="The kind of mathematical operation this layer performs, e.g. Conv2d applies a sliding filter across an image." />
         </div>
         <div style={valueStyle}>{record?.type ?? '—'}</div>
         <div style={{ ...labelStyle, marginTop: 12, display: 'flex', alignItems: 'center' }}>
-          Param count <InfoIcon title="The number of learnable values inside this layer. More params = more capacity to learn complex patterns." />
+          Param count <InfoIcon tooltip="The number of learnable values inside this layer. More params = more capacity to learn complex patterns." />
         </div>
         <div style={valueStyle}>{(record?.param_count ?? 0).toLocaleString()}</div>
         <div style={{ ...labelStyle, marginTop: 8 }}>Trainable params</div>
@@ -144,18 +139,18 @@ export default function DetailPanel() {
         <>
           <div style={sectionStyle}>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-              Input shape <InfoIcon title="Shape describes the dimensions of the data entering this layer. For example [1, 64, 224, 224] = 1 image, 64 channels, 224×224 pixels." />
+              Input shape <InfoIcon tooltip="Shape describes the dimensions of the data entering this layer. For example [1, 64, 224, 224] = 1 image, 64 channels, 224×224 pixels." />
             </div>
             <div style={valueStyle}>[{inputShape.join(', ')}]</div>
             <div style={{ ...labelStyle, marginTop: 12, display: 'flex', alignItems: 'center' }}>
-              Output shape <InfoIcon title="Shape of the data leaving this layer after the operation is applied." />
+              Output shape <InfoIcon tooltip="Shape of the data leaving this layer after the operation is applied." />
             </div>
             <div style={valueStyle}>[{outputShape.join(', ')}]</div>
           </div>
 
           <div style={sectionStyle}>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-              Statistics <InfoIcon title="Computed from the complete output tensor of this layer. No values are approximated or truncated." />
+              Statistics <InfoIcon tooltip="Computed from the complete output tensor of this layer. No values are approximated or truncated." />
             </div>
             <div style={valueStyle}>
               Mean: {(stats.mean ?? 0).toFixed(8)}<br />
@@ -167,69 +162,53 @@ export default function DetailPanel() {
 
           <div style={sectionStyle}>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-              Output tensor heatmap <InfoIcon title="A visual map of every value in this layer's output tensor. Brighter = higher value. Computed from complete, untruncated data." />
+              Output tensor heatmap <InfoIcon tooltip="A visual map of every value in this layer's output tensor. Brighter = higher value. Computed from complete, untruncated data." />
             </div>
-            <TensorHeatmap tensor={record?.output_tensor} width="100%" />
+            <FeatureMapGrid tensor={record?.output_tensor} outputShape={record?.output_shape} stats={record?.stats} />
           </div>
         </>
       )}
 
-      <div style={sectionStyle}>
-        <div style={{ ...labelStyle, display: 'flex', alignItems: 'center' }}>
-          EXPORT SIZE — ~{estimateSize.human_readable} <InfoIcon title="The approximate file size if you save this layer's full tensor data. Strata never truncates — what you save is complete and exact." />
+      <div style={{ padding: '16px', borderTop: '1px solid #222' }}>
+        <div style={{ color: '#888', fontSize: 10, letterSpacing: '0.15em', marginBottom: 12 }}>
+          EXPORT SIZE — ~{estimateSize.human_readable}
+          <InfoIcon tooltip="Approximate file size with full untruncated tensor data." />
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={handleSaveToFile}
-            style={{
-              padding: '8px 14px',
-              background: theme.bg,
-              border: `1px solid ${theme.border}`,
-              color: theme.primary,
-              fontFamily: theme.font,
-              fontSize: 10,
-              letterSpacing: theme.tracking,
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = theme.hover;
-              e.currentTarget.style.borderColor = theme.primary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = theme.bg;
-              e.currentTarget.style.borderColor = theme.border;
-            }}
-          >
-            Save to file
-          </button>
-          <button
-            type="button"
-            onClick={handleCopyJson}
-            style={{
-              padding: '8px 14px',
-              background: theme.bg,
-              border: `1px solid ${theme.border}`,
-              color: theme.primary,
-              fontFamily: theme.font,
-              fontSize: 10,
-              letterSpacing: theme.tracking,
-              textTransform: 'uppercase',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = theme.hover;
-              e.currentTarget.style.borderColor = theme.primary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = theme.bg;
-              e.currentTarget.style.borderColor = theme.border;
-            }}
-          >
-            {copyStatus ? 'Copied' : 'Copy JSON'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSaveToFile}
+          style={{
+            width: '100%',
+            padding: '12px',
+            marginBottom: 8,
+            background: '#FFFFFF',
+            color: '#000000',
+            border: 'none',
+            letterSpacing: '0.15em',
+            fontSize: 12,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          SAVE TO FILE
+        </button>
+        <button
+          type="button"
+          onClick={handleCopyJson}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: 'transparent',
+            color: '#FFFFFF',
+            border: '1px solid #FFFFFF',
+            letterSpacing: '0.15em',
+            fontSize: 12,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          {copyStatus ? 'COPIED' : 'COPY JSON'}
+        </button>
       </div>
 
       {showFileSizeModal && (

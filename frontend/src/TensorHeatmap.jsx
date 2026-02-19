@@ -32,8 +32,12 @@ export default function TensorHeatmap({ tensor, width = '100%' }) {
     }
     const flat = flattenToFloats(slice);
     if (flat.length === 0) return { data: null, minVal: 0, maxVal: 0, gridW: 0, gridH: 0 };
-    const minVal = Math.min(...flat);
-    const maxVal = Math.max(...flat);
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    for (let i = 0; i < flat.length; i++) {
+      if (flat[i] < minVal) minVal = flat[i];
+      if (flat[i] > maxVal) maxVal = flat[i];
+    }
     const range = maxVal - minVal || 1;
     let gridW = 1;
     let gridH = 1;
