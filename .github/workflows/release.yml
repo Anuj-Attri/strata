@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build backend
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pyinstaller uvicorn
+          pyinstaller --onefile --name strata_backend --distpath backend/dist --specpath backend --workpath backend/build \
+            --hidden-import=transformers --hidden-import=onnxruntime --hidden-import=torch \
+            --hidden-import=backend.main --hidden-import=backend.cache_store --hidden-import=backend.model_loader \
+            --hidden-import=backend.hook_manager --hidden-import=backend.inference_runner \
+            run_backend.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run make
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: strata-${{ matrix.os }}
+          path: frontend/release/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Strata ${{ github.ref_name }}
+          body: |
+            Download the installer for your operating system below.
+            - **Windows**: Use the .exe installer.
+            - **macOS**: Use the .dmg image.
+            - **Linux**: Use the AppImage.
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

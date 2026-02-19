@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install flake8
+
+      - name: Lint backend
+        run: |
+          cd backend
+          flake8 --max-line-length=120 .
+
+      - name: Import backend modules
+        run: |
+          cd backend
+          python -c "import main, model_loader, hook_manager, inference_runner, cache_store"
+
+  frontend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
