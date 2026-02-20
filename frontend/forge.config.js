@@ -2,7 +2,7 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: './assets/icons/icon',
-    extraResource: ['../backend/dist/strata_backend']
+    extraResource: []
   },
   rebuildConfig: {},
   makers: [
