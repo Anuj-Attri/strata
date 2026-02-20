@@ -9,9 +9,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-import numpy as np
+import numpy as np # noqa: F401
 import onnx
-import onnxruntime
+import onnxruntime # noqa: F401
 import torch
 import torch.nn as nn
 

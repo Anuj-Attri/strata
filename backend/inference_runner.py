@@ -246,7 +246,8 @@ def run_onnx_inference(
     prepared_input can be a numpy array (single input) or a dict of name -> np.ndarray (e.g. text).
     """
     if isinstance(prepared_input, dict):
-        input_dict = {k: (v.detach().cpu().numpy() if hasattr(v, "detach") else np.asarray(v)) for k, v in prepared_input.items()}
+        input_dict = {k: (v.detach().cpu().numpy() if hasattr(v, "detach") 
+        else np.asarray(v)) for k, v in prepared_input.items()}
     else:
         input_name = session.get_inputs()[0].name
         inp = prepared_input.detach().cpu().numpy()

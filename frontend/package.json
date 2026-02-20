@@ -12,12 +12,7 @@
   "config": {
     "forge": {
       "packagerConfig": {
-        "extraResource": [
-          {
-            "from": "../backend/dist/strata_backend",
-            "to": "strata_backend"
-          }
-        ]
+        "extraResource": []
       },
       "makers": [
         {
