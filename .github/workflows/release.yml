@@ -87,7 +87,7 @@ jobs:
 
       - name: Make Electron app (Windows)
         if: matrix.os == 'windows-latest'
-        run: cd frontend && npm run make
+        run: cd frontend && npm run make -- --targets @electron-forge/maker-zip
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
