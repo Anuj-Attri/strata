@@ -21,8 +21,7 @@ jobs:
         run: flake8 backend/ --max-line-length=120 --exclude=__pycache__,dist,build
       - name: Import check
         run: |
-          cd backend
-          python -c "import main, model_loader, hook_manager, inference_runner, cache_store"
+          python -c "import sys; sys.path.insert(0, '.'); import backend.main, backend.model_loader, backend.hook_manager, backend.inference_runner, backend.cache_store"
 
   frontend-check:
     name: Frontend Check
