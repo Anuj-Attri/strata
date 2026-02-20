@@ -2,9 +2,6 @@
 
 ### Visualize the layers beneath.
 
-[Screenshot placeholder — architecture graph]
-
-[Screenshot placeholder — detail panel with feature maps]
 
 Strata is an open-source AI model profiling and visualization tool. Load any PyTorch or ONNX model, run inference on real inputs, and explore every layer's full tensor data in an interactive 3D graph.
 
