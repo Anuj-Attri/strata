@@ -10,8 +10,6 @@ module.exports = {
       name: '@electron-forge/maker-squirrel',
       config: {
         name: 'strata',
-        iconUrl: 'https://raw.githubusercontent.com/Anuj-Attri/strata/main/frontend/assets/icons/icon.ico',
-        setupIcon: './assets/icons/icon.ico',
         setupExe: 'StrataSetup.exe',
         noMsi: true
       }
