@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
-bash "$(dirname "$0")/build_backend.sh"
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT/frontend"
-npm install
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+bash "$REPO/scripts/build_backend.sh"
+echo "=== Strata: Building frontend ==="
+cd "$REPO/frontend"
+npm ci
 npm run make
-echo "Strata build complete. Installers in frontend/release/"
+echo "=== Build complete. Check frontend/out/make/ ==="

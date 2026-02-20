@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from './store';
@@ -8,7 +8,8 @@ import InfoIcon from './InfoIcon';
 import BackgroundGrid from './BackgroundGrid';
 
 const NODE_LIMIT = 200;
-const INITIAL_DISPLAY_COUNT = 100;
+const INITIAL_DISPLAY_COUNT = 50;
+const TEXTURE_CAP = 50;
 
 function buildLayout(nodes) {
   const positions = {};
@@ -55,6 +56,8 @@ function makeTextTexture(line1, line2) {
 }
 
 function makeTensorTexture(outputTensor, outputShape) {
+  if (!outputTensor || !outputShape || outputShape.length === 0) return null;
+  if (Array.isArray(outputTensor) && outputTensor.length === 0) return null;
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
@@ -65,6 +68,8 @@ function makeTensorTexture(outputTensor, outputShape) {
     let grid = null;
     if (outputShape?.length === 4) {
       grid = outputTensor[0]?.[0];
+    } else if (outputShape?.length === 3) {
+      grid = outputTensor[0];
     } else if (outputShape?.length === 2) {
       grid = [outputTensor[0]];
     } else {
@@ -115,17 +120,8 @@ function makeTensorTexture(outputTensor, outputShape) {
   return new THREE.CanvasTexture(canvas);
 }
 
-function GraphNode({ node, position, isSelected, hasFired, record, onSelect }) {
-  const texture = useMemo(() => {
-    if (record?.output_tensor != null && record?.output_shape?.length) {
-      return makeTensorTexture(record.output_tensor, record.output_shape);
-    }
-    return makeTextTexture(
-      node.type?.toUpperCase() || 'OP',
-      node.name?.split('/').pop()?.slice(0, 20) || ''
-    );
-  }, [node.type, node.name, record?.output_tensor, record?.output_shape]);
-
+function GraphNode({ node, position, isSelected, hasFired, record, onSelect, hasTexture, getTexture }) {
+  const texture = hasTexture && getTexture ? getTexture(node, record) : null;
   const selectNode = (e) => {
     e.stopPropagation();
     onSelect(node.id);
@@ -135,7 +131,11 @@ function GraphNode({ node, position, isSelected, hasFired, record, onSelect }) {
     <group position={position}>
       <mesh position={[0, 0, 0.06]} onPointerDown={selectNode}>
         <planeGeometry args={[2.9, 1.3]} />
-        <meshBasicMaterial map={texture} transparent={false} />
+        {texture ? (
+          <meshBasicMaterial map={texture} transparent={false} />
+        ) : (
+          <meshBasicMaterial color="#111111" />
+        )}
       </mesh>
       <mesh position={[0, 0, -0.06]} onPointerDown={selectNode}>
         <boxGeometry args={[3, 1.4, 0.12]} />
@@ -183,6 +183,8 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
   const inferenceCache = useStore((state) => state.inferenceCache);
   const layerOrder = useStore((state) => state.layerOrder);
   const controlsRef = useRef(null);
+  const textureCache = useRef({});
+  const [textureVisibleSet, setTextureVisibleSet] = useState(() => new Set());
 
   const visibleNodes = useMemo(
     () =>
@@ -193,6 +195,57 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
   );
   const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
   const firedSet = useMemo(() => new Set(layerOrder), [layerOrder]);
+
+  const textureVisibleIds = useMemo(() => {
+    if (visibleNodes.length <= TEXTURE_CAP) return new Set(visibleIds);
+    return new Set(visibleNodes.slice(0, TEXTURE_CAP).map((n) => n.id));
+  }, [visibleNodes, visibleIds]);
+
+  useFrame(({ camera }) => {
+    const camY = camera.position.y;
+    const nearby = new Set(
+      visibleNodes.filter((_, i) => {
+        const row = Math.floor(i / 20);
+        const nodeY = row * -2.5 + 10;
+        return Math.abs(nodeY - camY) < 25;
+      }).map((n) => n.id)
+    );
+    setTextureVisibleSet((prev) => {
+      if (prev.size !== nearby.size || [...prev].some((id) => !nearby.has(id))) return nearby;
+      return prev;
+    });
+  });
+
+  useEffect(() => {
+    if (Object.keys(inferenceCache).length === 0) {
+      Object.values(textureCache.current).forEach((t) => t && t.dispose && t.dispose());
+      textureCache.current = {};
+    }
+  }, [inferenceCache]);
+
+  const getTexture = useCallback((node, record) => {
+    const hasFired = record?.output_tensor != null && record?.output_shape?.length;
+    const key = `${node.id}-${hasFired ? 'fired' : 'label'}`;
+    if (textureCache.current[key]) return textureCache.current[key];
+    let tex;
+    if (hasFired && record?.output_tensor != null && record?.output_shape?.length) {
+      tex = makeTensorTexture(record.output_tensor, record.output_shape);
+    } else {
+      tex = makeTextTexture(
+        node.type?.toUpperCase() || 'OP',
+        node.name?.split('/').pop()?.slice(0, 20) || ''
+      );
+    }
+    if (tex) textureCache.current[key] = tex;
+    return tex;
+  }, []);
+
+  const showTextureSet = useMemo(() => {
+    const s = new Set();
+    textureVisibleIds.forEach((id) => s.add(id));
+    textureVisibleSet.forEach((id) => s.add(id));
+    return s;
+  }, [textureVisibleIds, textureVisibleSet]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -269,6 +322,8 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
             hasFired={firedSet.has(node.id)}
             record={record}
             onSelect={setSelectedLayer}
+            hasTexture={showTextureSet.has(node.id)}
+            getTexture={getTexture}
           />
         );
       })}
@@ -390,7 +445,7 @@ export default function GraphView() {
           textTransform: 'uppercase',
         }}
       >
-        <span>Architecture graph — {displayCount} nodes</span>
+        <span>{hasMore ? `SHOWING ${INITIAL_DISPLAY_COUNT} OF ${nodes.length} — LOAD MORE` : `Architecture graph — ${displayCount} nodes`}</span>
         <InfoIcon tooltip="This graph shows the structure of your model. Click any node to inspect its tensor data." />
       </div>
     </div>

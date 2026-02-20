@@ -9,16 +9,33 @@ import OnboardingFlow from './OnboardingFlow';
 const API_BASE = 'http://127.0.0.1:8000';
 const WS_URL = 'ws://127.0.0.1:8000/ws/stream';
 
+const INFERENCE_TIMEOUT_MS = 120000;
+
+function flushPending(pendingRef, flushTimerRef, addToCacheBatch, setRunning) {
+  const batch = { ...pendingRef.current };
+  pendingRef.current = {};
+  if (flushTimerRef.current) {
+    clearTimeout(flushTimerRef.current);
+    flushTimerRef.current = null;
+  }
+  if (Object.keys(batch).length > 0) {
+    addToCacheBatch(batch);
+  }
+}
+
 export default function App() {
   const {
     modelGraph,
     setModelGraph,
-    addToCache,
+    addToCacheBatch,
     setRunning,
     setLayerOrder,
     clearCache,
   } = useStore();
   const wsRef = useRef(null);
+  const pendingRef = useRef({});
+  const flushTimerRef = useRef(null);
+  const inferenceTimeoutRef = useRef(null);
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
@@ -28,17 +45,34 @@ export default function App() {
       try {
         const data = JSON.parse(event.data);
         if (data === null) {
+          if (inferenceTimeoutRef.current) {
+            clearTimeout(inferenceTimeoutRef.current);
+            inferenceTimeoutRef.current = null;
+          }
           setRunning(false);
+          flushPending(pendingRef, flushTimerRef, addToCacheBatch, setRunning);
           return;
         }
         const raw = data.layer_id ?? '';
         const sanitized = raw.replace(/[^a-zA-Z0-9_]/g, '_');
-        addToCache(raw || 'layer', data);
-        if (sanitized) addToCache(sanitized, data);
+        pendingRef.current[raw || 'layer'] = data;
+        if (sanitized) pendingRef.current[sanitized] = data;
         if (data.layer_id) {
           window.dispatchEvent(
             new CustomEvent('strata:layer-fired', { detail: { layer_id: data.layer_id } })
           );
+        }
+        if (!inferenceTimeoutRef.current) {
+          inferenceTimeoutRef.current = setTimeout(() => {
+            setRunning(false);
+            inferenceTimeoutRef.current = null;
+            alert('Inference timed out after 120 seconds. The model may be too large for your hardware.');
+          }, INFERENCE_TIMEOUT_MS);
+        }
+        if (!flushTimerRef.current) {
+          flushTimerRef.current = setTimeout(() => {
+            flushPending(pendingRef, flushTimerRef, addToCacheBatch, setRunning);
+          }, 100);
         }
       } catch (_) {
         setRunning(false);
@@ -52,7 +86,7 @@ export default function App() {
       if (ws.readyState === WebSocket.OPEN) ws.close();
       wsRef.current = null;
     };
-  }, [addToCache, setRunning]);
+  }, [addToCacheBatch, setRunning]);
 
   const handleLoadModel = async () => {
     if (!window.strata?.openFile) return;
@@ -69,7 +103,9 @@ export default function App() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || res.statusText);
+        const msg = err.error || err.detail || res.statusText;
+        alert(`Failed to load model: ${msg}\n\nMake sure your file is a valid .pt, .pth, or .onnx model.`);
+        return;
       }
       const graph = await res.json();
       console.log('Graph data:', JSON.stringify(graph, null, 2));

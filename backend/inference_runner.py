@@ -65,6 +65,56 @@ def _parse_onnx_image_shape(session: onnxruntime.InferenceSession) -> tuple[int,
     return h, w
 
 
+def prepare_text_input_onnx(text: str, session: onnxruntime.InferenceSession) -> dict[str, np.ndarray]:
+    """
+    Tokenizes text input for transformer ONNX models.
+    Tries common tokenizers (BERT, DistilBERT, RoBERTa, GPT-2) and builds
+    input_dict matching the session's expected input names.
+    """
+    from transformers import AutoTokenizer
+
+    input_names = [i.name for i in session.get_inputs()]
+    tokenizer_options = [
+        "bert-base-uncased",
+        "distilbert-base-uncased",
+        "roberta-base",
+        "gpt2",
+    ]
+    tokens = None
+    for tok_name in tokenizer_options:
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(tok_name)
+            tokens = tokenizer(
+                text,
+                return_tensors="np",
+                padding="max_length",
+                max_length=128,
+                truncation=True,
+            )
+            break
+        except Exception:
+            continue
+    if tokens is None:
+        raise ValueError("Could not tokenize input. No compatible tokenizer found.")
+
+    input_dict: dict[str, np.ndarray] = {}
+    for name in input_names:
+        if "input_ids" in name and "input_ids" in tokens:
+            input_dict[name] = tokens["input_ids"].astype(np.int64)
+        elif "attention_mask" in name and "attention_mask" in tokens:
+            input_dict[name] = tokens["attention_mask"].astype(np.int64)
+        elif "token_type_ids" in name and "token_type_ids" in tokens:
+            input_dict[name] = tokens["token_type_ids"].astype(np.int64)
+        else:
+            inp0 = session.get_inputs()[0]
+            shape = getattr(inp0, "shape", []) or []
+            shape = [s if isinstance(s, int) and s > 0 else 1 for s in shape]
+            if not shape:
+                shape = [1]
+            input_dict[name] = np.zeros(shape, dtype=np.int64)
+    return input_dict
+
+
 def prepare_input(
     input_data: str,
     input_hint: str,
@@ -111,6 +161,8 @@ def prepare_input(
         return t
 
     if hint == "text":
+        if onnx_session is not None:
+            return prepare_text_input_onnx(input_data, onnx_session)
         try:
             from transformers import AutoTokenizer
             tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
@@ -191,21 +243,22 @@ def run_onnx_inference(
     """
     Run ONNX inference. If model_path is set, use build_intermediate_session to
     capture all intermediate tensors; otherwise use the given session and graph_nodes.
+    prepared_input can be a numpy array (single input) or a dict of name -> np.ndarray (e.g. text).
     """
-    input_name = session.get_inputs()[0].name
-    inp = prepared_input.detach().cpu().numpy()
-    input_dict = {input_name: inp}
+    if isinstance(prepared_input, dict):
+        input_dict = {k: (v.detach().cpu().numpy() if hasattr(v, "detach") else np.asarray(v)) for k, v in prepared_input.items()}
+    else:
+        input_name = session.get_inputs()[0].name
+        inp = prepared_input.detach().cpu().numpy()
+        input_dict = {input_name: inp}
 
     if model_path:
         inter_session, output_names = build_intermediate_session(model_path)
-        # Build input_dict for all session inputs (user provides first; rest get zeros)
         all_inputs = inter_session.get_inputs()
         inter_input_dict: dict[str, np.ndarray] = {}
         for idx, inp_meta in enumerate(all_inputs):
-            if idx == 0:
-                arr = prepared_input.detach().cpu().numpy()
-                if arr.dtype != np.float32 and arr.dtype != np.float64:
-                    arr = arr.astype(np.float32)
+            if inp_meta.name in input_dict:
+                arr = np.asarray(input_dict[inp_meta.name])
                 inter_input_dict[inp_meta.name] = arr
             else:
                 shape = getattr(inp_meta, "shape", []) or []
@@ -338,12 +391,6 @@ def run_inference(
             raise RuntimeError("No ONNX model loaded. Load a model first.")
         graph_nodes = model_graph.get("nodes") or []
         model_path = model_state.get("model_path")
-        if isinstance(prepared, dict):
-            prepared_tensor = prepared.get("input_ids")
-            if prepared_tensor is None:
-                raise ValueError("Text input produced no input_ids. Cannot run ONNX inference.")
-        else:
-            prepared_tensor = prepared
-        return run_onnx_inference(model, prepared_tensor, graph_nodes, queue, model_path=model_path)
+        return run_onnx_inference(model, prepared, graph_nodes, queue, model_path=model_path)
 
     raise ValueError(f"Unknown model_type: {model_type}. Expected 'pt' or 'onnx'.")

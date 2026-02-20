@@ -6,20 +6,17 @@ import InfoIcon from './InfoIcon';
 const API_BASE = 'http://127.0.0.1:8000';
 
 function detectInputType(nodes) {
-  if (!nodes || !Array.isArray(nodes)) return 'tensor';
-  const isVision = nodes.some(
-    (n) =>
-      n.type?.toLowerCase().includes('conv') ||
-      n.name?.toLowerCase().includes('conv')
-  );
-  const isNLP = nodes.some(
-    (n) =>
-      n.type?.toLowerCase().includes('attention') ||
-      n.type?.toLowerCase().includes('embed') ||
-      n.name?.toLowerCase().includes('attention') ||
-      n.name?.toLowerCase().includes('embed')
-  );
-  return isVision ? 'image' : isNLP ? 'text' : 'tensor';
+  if (!nodes?.length) return 'tensor';
+  const names = nodes.map((n) => (n.type + ' ' + (n.name || '')).toLowerCase()).join(' ');
+  if (names.includes('conv')) return 'image';
+  if (
+    names.includes('attention') ||
+    names.includes('embedding') ||
+    names.includes('layernorm') ||
+    names.includes('gather') ||
+    (names.includes('matmul') && names.includes('softmax'))
+  ) return 'text';
+  return 'tensor';
 }
 
 export default function InputPanel() {
@@ -170,11 +167,11 @@ export default function InputPanel() {
         )}
         {inputType === 'text' && (
           <>
-            <input
-              type="text"
+            <textarea
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Enter a sentence…"
+              placeholder="Enter a sentence or paragraph. Example: The model processes this text through each layer."
+              rows={3}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -183,12 +180,18 @@ export default function InputPanel() {
                 color: theme.primary,
                 fontFamily: theme.font,
                 fontSize: 13,
+                resize: 'vertical',
               }}
             />
             <div style={{ fontSize: 10, color: theme.secondary, letterSpacing: theme.tracking, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
-              ENTER TEXT
-              <InfoIcon tooltip="Text is tokenized automatically using a BERT-compatible tokenizer." />
+              TEXT INPUT
+              <InfoIcon tooltip="Your text will be tokenized automatically. BERT-style models use WordPiece tokenization; GPT-style use BPE. Max 128 tokens." />
             </div>
+            {textInput.trim() && (
+              <div style={{ fontSize: 10, color: theme.secondary, marginTop: 4 }}>
+                ~{Math.ceil(textInput.trim().split(/\s+/).length * 1.3)} tokens estimated
+              </div>
+            )}
           </>
         )}
         {inputType === 'tensor' && (

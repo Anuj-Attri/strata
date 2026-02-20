@@ -46,6 +46,10 @@ def _first_tensor_from_output(output_arg: Any) -> np.ndarray | None:
         for x in output_arg:
             if x is not None and isinstance(x, torch.Tensor):
                 return x.detach().cpu().numpy()
+    if hasattr(output_arg, "last_hidden_state"):
+        return output_arg.last_hidden_state.detach().cpu().numpy()
+    if hasattr(output_arg, "logits"):
+        return output_arg.logits.detach().cpu().numpy()
     return None
 
 

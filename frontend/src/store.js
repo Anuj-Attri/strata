@@ -19,6 +19,14 @@ export const useStore = create((set) => ({
       },
     })),
 
+  addToCacheBatch: (batch) =>
+    set((state) => ({
+      inferenceCache: {
+        ...state.inferenceCache,
+        ...batch,
+      },
+    })),
+
   clearCache: () => set({ inferenceCache: {}, layerOrder: [] }),
 
   setRunning: (isRunning) => set({ isRunning }),

@@ -60,7 +60,14 @@ function ChannelTile({ data, width = 80, height = 80, onClick }) {
 export default function FeatureMapGrid({ tensor, outputShape, stats }) {
   const [zoomed, setZoomed] = useState(null);
 
-  if (!tensor) {
+  if (!tensor || !outputShape || outputShape.length === 0) {
+    return (
+      <div style={{ color: '#444', fontSize: 12 }}>
+        NO DATA — RUN INFERENCE FIRST
+      </div>
+    );
+  }
+  if (Array.isArray(tensor) && tensor.length === 0) {
     return (
       <div style={{ color: '#444', fontSize: 12 }}>
         NO DATA — RUN INFERENCE FIRST
@@ -72,6 +79,21 @@ export default function FeatureMapGrid({ tensor, outputShape, stats }) {
   let channels = [];
   if (rank === 4 && Array.isArray(tensor[0])) {
     channels = tensor[0];
+  } else if (rank === 3 && Array.isArray(tensor[0])) {
+    const grid = tensor[0];
+    return (
+      <div>
+        <div style={{ color: '#888', fontSize: 11, marginBottom: 8 }}>
+          ATTENTION PATTERN — {grid.length} TOKENS × {grid[0]?.length ?? 0} DIMS
+        </div>
+        <ChannelTile data={grid} width={260} height={Math.min(grid.length * 4, 260)} />
+        {stats && (
+          <div style={{ color: '#888', fontSize: 11, marginTop: 8 }}>
+            Shape: [{outputShape.join(', ')}] · mean {Number(stats.mean).toFixed(4)} · std {Number(stats.std).toFixed(4)} · min {Number(stats.min).toFixed(4)} · max {Number(stats.max).toFixed(4)}
+          </div>
+        )}
+      </div>
+    );
   } else if (rank === 2) {
     channels = [tensor];
   } else if (rank === 1 || (Array.isArray(tensor) && !Array.isArray(tensor[0]))) {

@@ -1,77 +1,132 @@
-name: Release
+name: Strata Release
 
 on:
   push:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-          - os: macos-latest
-          - os: windows-latest
+    name: Build — ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Build backend
-        run: |
-          pip install -r backend/requirements.txt
-          pip install pyinstaller uvicorn
-          pyinstaller --onefile --name strata_backend --distpath backend/dist --specpath backend --workpath backend/build \
-            --hidden-import=transformers --hidden-import=onnxruntime --hidden-import=torch \
-            --hidden-import=backend.main --hidden-import=backend.cache_store --hidden-import=backend.model_loader \
-            --hidden-import=backend.hook_manager --hidden-import=backend.inference_runner \
-            run_backend.py
+      - name: Install backend deps
+        run: pip install -r backend/requirements.txt pyinstaller
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - name: Build backend binary (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd backend
+          pyinstaller --onefile --name strata_backend \
+            --hidden-import=uvicorn.logging \
+            --hidden-import=uvicorn.loops \
+            --hidden-import=uvicorn.loops.auto \
+            --hidden-import=uvicorn.protocols \
+            --hidden-import=uvicorn.protocols.http \
+            --hidden-import=uvicorn.protocols.http.auto \
+            --hidden-import=uvicorn.protocols.websockets \
+            --hidden-import=uvicorn.protocols.websockets.auto \
+            --hidden-import=uvicorn.lifespan \
+            --hidden-import=uvicorn.lifespan.on \
+            --hidden-import=fastapi \
+            --hidden-import=onnxruntime \
+            --hidden-import=onnx \
+            --hidden-import=transformers \
+            --hidden-import=PIL \
+            main.py
+
+      - name: Build backend binary (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd backend
+          pyinstaller --onefile --name strata_backend `
+            --hidden-import=uvicorn.logging `
+            --hidden-import=uvicorn.loops `
+            --hidden-import=uvicorn.loops.auto `
+            --hidden-import=uvicorn.protocols `
+            --hidden-import=uvicorn.protocols.http `
+            --hidden-import=uvicorn.protocols.http.auto `
+            --hidden-import=uvicorn.protocols.websockets `
+            --hidden-import=uvicorn.protocols.websockets.auto `
+            --hidden-import=uvicorn.lifespan `
+            --hidden-import=uvicorn.lifespan.on `
+            --hidden-import=fastapi `
+            --hidden-import=onnxruntime `
+            --hidden-import=onnx `
+            --hidden-import=transformers `
+            --hidden-import=PIL `
+            main.py
+
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm install
-          npm run make
+      - name: Install frontend deps
+        run: cd frontend && npm ci
 
-      - name: Upload artifact
+      - name: Make Electron app (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: cd frontend && npm run make
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Make Electron app (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cd frontend && npm run make
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: strata-${{ matrix.os }}
-          path: frontend/release/
+          path: |
+            frontend/out/make/**/*.deb
+            frontend/out/make/**/*.AppImage
+            frontend/out/make/**/*.exe
+            frontend/out/make/**/*.zip
+          if-no-files-found: warn
 
   release:
+    name: Publish Release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           name: Strata ${{ github.ref_name }}
-          body: |
-            Download the installer for your operating system below.
-            - **Windows**: Use the .exe installer.
-            - **macOS**: Use the .dmg image.
-            - **Linux**: Use the AppImage.
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          body: |
+            ## Strata ${{ github.ref_name }}
+            ### Download
+            | Platform | File |
+            |----------|------|
+            | Ubuntu/Debian | `.deb` |
+            | Linux | `.AppImage` |
+            | Windows | `.exe` |
+
+            **Linux:** `sudo dpkg -i Strata*.deb` or run `.AppImage` directly (chmod +x first).
+            **Windows:** Run the `.exe` installer. No terminal needed.
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
