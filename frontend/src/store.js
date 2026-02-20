@@ -6,8 +6,10 @@ export const useStore = create((set) => ({
   inferenceCache: {},
   isRunning: false,
   layerOrder: [],
+  fullRender: false,
 
   setModelGraph: (modelGraph) => set({ modelGraph }),
+  setFullRender: (fullRender) => set({ fullRender }),
 
   setSelectedLayer: (selectedLayerId) => set({ selectedLayerId }),
 

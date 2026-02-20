@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
 import { theme } from './theme';
 import GraphView from './GraphView';
 import DetailPanel from './DetailPanel';
 import InputPanel from './InputPanel';
 import OnboardingFlow from './OnboardingFlow';
+import InfoIcon from './InfoIcon';
 
 const API_BASE = 'http://127.0.0.1:8000';
 const WS_URL = 'ws://127.0.0.1:8000/ws/stream';
@@ -31,6 +32,8 @@ export default function App() {
     setRunning,
     setLayerOrder,
     clearCache,
+    fullRender,
+    setFullRender,
   } = useStore();
   const wsRef = useRef(null);
   const pendingRef = useRef({});
@@ -171,6 +174,27 @@ export default function App() {
         >
           LOAD MODEL
         </button>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginLeft: 24,
+            fontSize: 11,
+            letterSpacing: '0.15em',
+            color: '#888',
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={fullRender}
+            onChange={(e) => setFullRender(e.target.checked)}
+            style={{ accentColor: '#ffffff' }}
+          />
+          FULL RENDER
+          <InfoIcon tooltip="When enabled, node faces display their output tensor as a feature map after inference. Disabled by default for performance." />
+        </label>
         <span
           style={{
             flex: 1,
@@ -187,7 +211,7 @@ export default function App() {
 
       <main style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <section style={{ flex: '0 0 70%', height: '100%', position: 'relative' }}>
-          <GraphView />
+          <GraphView fullRender={fullRender} />
         </section>
         <section style={{ flex: '0 0 30%', height: '100%', borderLeft: `1px solid ${theme.border}` }}>
           <DetailPanel />

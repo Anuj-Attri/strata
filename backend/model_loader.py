@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np  # noqa: F401
 import onnx
+import onnx.shape_inference
 import onnxruntime  # noqa: F401
 import torch
 import torch.nn as nn
@@ -95,6 +96,34 @@ def load_pt_model(path: str) -> dict[str, Any]:
     }
 
 
+def count_onnx_params(node: Any, model: onnx.ModelProto) -> int:
+    """Count parameters for an ONNX node by summing sizes of initializer inputs."""
+    total = 0
+    initializer_names = {init.name for init in model.graph.initializer}
+    for input_name in node.input:
+        if input_name in initializer_names:
+            for init in model.graph.initializer:
+                if init.name == input_name:
+                    count = 1
+                    for dim in init.dims:
+                        count *= dim
+                    total += count
+                    break
+    return total
+
+
+def get_onnx_shapes(model: onnx.ModelProto) -> dict[str, list[int]]:
+    """Run shape inference and return a map from value name to shape (list of ints)."""
+    inferred = onnx.shape_inference.infer_shapes(model)
+    shapes: dict[str, list[int]] = {}
+    for vi in list(inferred.graph.value_info) + list(inferred.graph.input) + list(inferred.graph.output):
+        shape = []
+        for dim in vi.type.tensor_type.shape.dim:
+            shape.append(dim.dim_value if dim.dim_value > 0 else -1)
+        shapes[vi.name] = shape
+    return shapes
+
+
 def _onnx_tensor_shape(tensor: Any) -> list[int] | None:
     """Get shape as a list of integers from an ONNX tensor (TensorProto or ValueInfoProto)."""
     if tensor is None:
@@ -128,17 +157,12 @@ def load_onnx_model(path: str) -> dict[str, Any]:
     except onnx.checker.ValidationError as e:
         raise ValueError(f"Invalid ONNX model: {e!s}") from e
 
+    try:
+        shapes = get_onnx_shapes(onnx_model)
+    except Exception:
+        shapes = {}
+
     graph = onnx_model.graph
-    name_to_shape: dict[str, list[int] | None] = {}
-
-    for inp in list(graph.input or []):
-        name_to_shape[inp.name] = _onnx_tensor_shape(inp)
-    for vi in list(graph.value_info or []):
-        name_to_shape[vi.name] = _onnx_tensor_shape(vi)
-    for out in list(graph.output or []):
-        if out.name not in name_to_shape:
-            name_to_shape[out.name] = _onnx_tensor_shape(out)
-
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, str]] = []
     output_to_node: dict[str, str] = {}
@@ -150,20 +174,20 @@ def load_onnx_model(path: str) -> dict[str, Any]:
         input_names = list(node.input) if node.input else []
         output_names = list(node.output) if node.output else []
 
+        param_count = count_onnx_params(node, onnx_model)
+        input_dims = shapes.get(node.input[0], []) if node.input else []
+        output_dims = shapes.get(node.output[0], []) if node.output else []
+
         node_entry: dict[str, Any] = {
             "id": nid,
             "name": name,
             "type": node.op_type,
-            "param_count": 0,
+            "param_count": param_count,
             "input_shapes": input_names,
             "output_shapes": output_names,
+            "input_dims": input_dims,
+            "output_dims": output_dims,
         }
-
-        input_dims = [name_to_shape.get(inp) for inp in input_names]
-        output_dims = [name_to_shape.get(out) for out in output_names]
-        if any(input_dims) or any(output_dims):
-            node_entry["input_dims"] = input_dims
-            node_entry["output_dims"] = output_dims
 
         nodes.append(node_entry)
 

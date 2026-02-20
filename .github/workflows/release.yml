@@ -79,6 +79,20 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm ci
 
+      - name: Copy backend binary (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p frontend/resources
+          cp backend/dist/strata_backend frontend/resources/strata_backend
+          chmod +x frontend/resources/strata_backend
+
+      - name: Copy backend binary (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path frontend/resources
+          Copy-Item backend/dist/strata_backend.exe frontend/resources/strata_backend.exe
+
       - name: Make Electron app (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: cd frontend && npm run make

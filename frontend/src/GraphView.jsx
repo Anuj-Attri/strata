@@ -102,7 +102,16 @@ function makeTensorTexture(outputTensor, outputShape) {
   return new THREE.CanvasTexture(canvas);
 }
 
-function GraphNode({ node, position, isSelected, hasData, onSelect, labelTexture }) {
+function GraphNode({ node, position, isSelected, hasData, onSelect, fullRender, record }) {
+  const texture = React.useMemo(() => {
+    if (fullRender && record?.output_tensor && record?.output_shape?.length) {
+      return makeTensorTexture(record.output_tensor, record.output_shape);
+    }
+    const line1 = node.type?.toUpperCase() ?? 'OP';
+    const line2 = node.name?.split('/').pop()?.slice(0, 20) ?? '';
+    return makeTextTexture(line1, line2);
+  }, [fullRender, record?.output_tensor, record?.output_shape, node.id, node.type, node.name]);
+
   const selectNode = (e) => {
     e.stopPropagation();
     onSelect(node.id);
@@ -112,8 +121,8 @@ function GraphNode({ node, position, isSelected, hasData, onSelect, labelTexture
     <group position={position}>
       <mesh position={[0, 0, 0.06]} onPointerDown={selectNode}>
         <planeGeometry args={[2.9, 1.3]} />
-        {labelTexture ? (
-          <meshBasicMaterial map={labelTexture} transparent={false} />
+        {texture ? (
+          <meshBasicMaterial map={texture} transparent={false} />
         ) : (
           <meshBasicMaterial color="#111111" />
         )}
@@ -164,12 +173,11 @@ function GraphEdges({ edges, positions, visibleIds }) {
   );
 }
 
-function Scene({ nodes, edges, positions, showAllNodes }) {
+function Scene({ nodes, edges, positions, showAllNodes, fullRender }) {
   const selectedLayerId = useStore((state) => state.selectedLayerId);
   const setSelectedLayer = useStore((state) => state.setSelectedLayer);
   const inferenceCache = useStore((state) => state.inferenceCache);
   const controlsRef = useRef(null);
-  const labelTextureCache = useRef({});
 
   const visibleNodes = useMemo(
     () =>
@@ -179,16 +187,6 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
     [nodes, showAllNodes]
   );
   const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
-
-  const getLabelTexture = useCallback((node) => {
-    const key = node.id;
-    if (labelTextureCache.current[key]) return labelTextureCache.current[key];
-    const line1 = node.type?.toUpperCase() ?? 'OP';
-    const line2 = node.name?.split('/').pop()?.slice(0, 20) ?? '';
-    const tex = makeTextTexture(line1, line2);
-    if (tex) labelTextureCache.current[key] = tex;
-    return tex;
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -264,7 +262,8 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
             isSelected={selectedLayerId === node.id}
             hasData={record != null}
             onSelect={setSelectedLayer}
-            labelTexture={getLabelTexture(node)}
+            fullRender={fullRender}
+            record={record}
           />
         );
       })}
@@ -273,7 +272,7 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
   );
 }
 
-export default function GraphView() {
+export default function GraphView({ fullRender = false }) {
   const { modelGraph } = useStore();
   const [showAllNodes, setShowAllNodes] = useState(false);
 
@@ -347,6 +346,7 @@ export default function GraphView() {
           edges={edges}
           positions={positions}
           showAllNodes={showAllNodes}
+          fullRender={fullRender}
         />
       </Canvas>
       {hasMore && (
