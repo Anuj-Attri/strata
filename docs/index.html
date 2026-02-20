@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strata — Visualize the layers beneath.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --text: #FFFFFF;
+      --muted: #666666;
+      --border: #111111;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      font-family: var(--font);
+      font-weight: 200;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Grid texture */
+    .page-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Drifting hero grid */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: drift 8s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes drift {
+      0% { background-position: 0 0; }
+      100% { background-position: 40px 40px; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ——— Navigation ——— */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      background: rgba(0,0,0,0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    nav .wordmark {
+      font-size: 14px;
+      font-weight: 200;
+      letter-spacing: 0.2em;
+      color: var(--text);
+      text-decoration: none;
+    }
+    nav .links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      opacity: 0.9;
+    }
+    nav a:hover {
+      opacity: 1;
+    }
+
+    /* ——— Hero ——— */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+    }
+    .hero .wordmark {
+      font-size: clamp(60px, 12vw, 140px);
+      font-weight: 100;
+      letter-spacing: 0.3em;
+      margin-bottom: 16px;
+    }
+    .hero .tagline {
+      font-size: 16px;
+      color: #666;
+      letter-spacing: 0.2em;
+      margin-bottom: 48px;
+    }
+    .hero .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+    }
+    .hero .btn {
+      display: inline-block;
+      padding: 14px 40px;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      cursor: pointer;
+    }
+    .hero .btn-primary {
+      background: var(--text);
+      color: var(--bg);
+      border: 1px solid var(--text);
+    }
+    .hero .btn-primary:hover {
+      background: transparent;
+      color: var(--text);
+    }
+    .hero .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--text);
+    }
+    .hero .btn-secondary:hover {
+      background: rgba(255,255,255,0.08);
+    }
+    .scroll-indicator {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 32px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.5), transparent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* ——— Overview ——— */
+    .overview {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 100px 24px;
+      text-align: center;
+    }
+    .section-label {
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 0.2em;
+      margin-bottom: 16px;
+    }
+    .overview h2 {
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 200;
+      letter-spacing: 0.05em;
+      margin-bottom: 24px;
+      line-height: 1.3;
+    }
+    .overview p {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    /* ——— Features ——— */
+    .features {
+      padding: 80px 24px 100px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .features .section-label {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .feature-card {
+      border: 1px solid var(--border);
+      padding: 40px 32px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: #333;
+      transform: translateY(-2px);
+    }
+    .feature-card .num {
+      font-size: 11px;
+      color: #333;
+      letter-spacing: 0.1em;
+      margin-bottom: 12px;
+    }
+    .feature-card h3 {
+      font-size: 18px;
+      font-weight: 200;
+      letter-spacing: 0.15em;
+      margin-bottom: 12px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    /* ——— Screenshots ——— */
+    .screenshots {
+      padding: 80px 24px 100px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .screenshots .section-label {
+      margin-bottom: 32px;
+    }
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 640px) {
+      .screenshots-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .screenshot-placeholder {
+      aspect-ratio: 16 / 9;
+      background: #0a0a0a;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .screenshot-placeholder span {
+      font-size: 11px;
+      color: #333;
+      letter-spacing: 0.2em;
+    }
+    .screenshot-caption {
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 0.15em;
+      margin-top: 12px;
+    }
+
+    /* ——— Download ——— */
+    .download {
+      padding: 100px 24px 120px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    #download {
+      scroll-margin-top: 80px;
+    }
+    .download .section-label {
+      margin-bottom: 12px;
+    }
+    .download h2 {
+      font-size: clamp(24px, 3vw, 36px);
+      font-weight: 200;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+    }
+    .download .subtext {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+    .download-cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 600px) {
+      .download-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+    .download-card {
+      border: 1px solid #222;
+      padding: 40px;
+      transition: border-color 0.2s;
+    }
+    .download-card:hover {
+      border-color: var(--text);
+    }
+    .download-card .os {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      margin-bottom: 12px;
+    }
+    .download-card .formats {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    .download-card .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      background: var(--text);
+      color: var(--bg);
+      text-decoration: none;
+      border: 1px solid var(--text);
+      transition: background 0.2s, color 0.2s;
+    }
+    .download-card .btn:hover {
+      background: transparent;
+      color: var(--text);
+    }
+
+    /* ——— Footer ——— */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 0.2em;
+    }
+    footer a {
+      color: #444;
+      text-decoration: none;
+    }
+    footer a:hover {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="page-bg" aria-hidden="true"></div>
+
+  <nav>
+    <a href="#" class="wordmark">STRATA</a>
+    <div class="links">
+      <a href="https://github.com/Anuj-Attri/strata">GITHUB</a>
+      <a href="#download">DOWNLOAD</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="hero-grid" aria-hidden="true"></div>
+      <h1 class="wordmark">STRATA</h1>
+      <p class="tagline">Visualize the layers beneath.</p>
+      <div class="buttons">
+        <a href="#download" class="btn btn-primary">DOWNLOAD</a>
+        <a href="https://github.com/Anuj-Attri/strata" class="btn btn-secondary">VIEW ON GITHUB</a>
+      </div>
+      <div class="scroll-indicator" aria-hidden="true"></div>
+    </section>
+
+    <section class="overview">
+      <p class="section-label">OVERVIEW</p>
+      <h2>The AI Black Box, opened.</h2>
+      <p>Strata is an open-source desktop tool for AI model profiling and visualization. Load any PyTorch or ONNX model, run inference on real inputs, and explore every layer's full tensor output in an interactive 3D graph.</p>
+    </section>
+
+    <section class="features">
+      <p class="section-label">FEATURES</p>
+      <div class="features-grid">
+        <article class="feature-card">
+          <p class="num">01</p>
+          <h3>3D ARCHITECTURE GRAPH</h3>
+          <p>Navigate your model's full layer structure in an interactive 3D graph. Pan, rotate, and zoom through every connection.</p>
+        </article>
+        <article class="feature-card">
+          <p class="num">02</p>
+          <h3>REAL-TIME INFERENCE</h3>
+          <p>Watch activations propagate through your network layer by layer as inference runs. Every node lights up with live tensor data.</p>
+        </article>
+        <article class="feature-card">
+          <p class="num">03</p>
+          <h3>FULL TENSOR EXPORT</h3>
+          <p>Export complete, untruncated tensor values to .txt for any layer. Built for engineers who need the actual numbers.</p>
+        </article>
+        <article class="feature-card">
+          <p class="num">04</p>
+          <h3>FEATURE MAP PREVIEW</h3>
+          <p>Click any layer after inference to see its output rendered as a grayscale feature map. Watch raw pixels become semantic features.</p>
+        </article>
+        <article class="feature-card">
+          <p class="num">05</p>
+          <h3>PYTORCH + ONNX</h3>
+          <p>Native support for PyTorch nn.Module models and ONNX exports. Works with vision models, transformers, and custom architectures.</p>
+        </article>
+        <article class="feature-card">
+          <p class="num">06</p>
+          <h3>NO CLOUD</h3>
+          <p>Entirely local. Your models and data never leave your machine. No account required.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="screenshots">
+      <p class="section-label">INTERFACE</p>
+      <div class="screenshots-grid">
+        <div>
+          <div class="screenshot-placeholder">
+            <span>SCREENSHOT COMING SOON</span>
+          </div>
+          <p class="screenshot-caption">Architecture Graph</p>
+        </div>
+        <div>
+          <div class="screenshot-placeholder">
+            <span>SCREENSHOT COMING SOON</span>
+          </div>
+          <p class="screenshot-caption">Layer Detail Panel</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="download" id="download">
+      <p class="section-label">DOWNLOAD</p>
+      <h2>STRATA v0.1.0-BETA</h2>
+      <p class="subtext">Early release. Expect rough edges. Feedback welcome.</p>
+      <div class="download-cards">
+        <div class="download-card">
+          <p class="os">LINUX</p>
+          <p class="formats">.deb — Ubuntu / Debian<br>.AppImage — Universal</p>
+          <a href="https://github.com/Anuj-Attri/strata/releases/tag/v0.1.2-beta" class="btn">DOWNLOAD LINUX</a>
+        </div>
+        <div class="download-card">
+          <p class="os">WINDOWS</p>
+          <p class="formats">.zip — Extract and run</p>
+          <a href="https://github.com/Anuj-Attri/strata/releases/tag/v0.1.2-beta" class="btn">DOWNLOAD WINDOWS</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>STRATA</span>
+      <span>MIT LICENSE</span>
+      <a href="https://github.com/Anuj-Attri/strata">GITHUB ↗</a>
+    </footer>
+  </main>
+
+  <!--
+    To enable GitHub Pages:
+    1. Go to https://github.com/Anuj-Attri/strata/settings/pages
+    2. Source: Deploy from branch
+    3. Branch: main, folder: /docs
+    4. Save — site will be live at https://anuj-attri.github.io/strata within a few minutes
+  -->
+</body>
+</html>
