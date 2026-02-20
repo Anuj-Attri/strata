@@ -1,18 +1,24 @@
-# Backend
+# Python
+__pycache__/
+*.py[cod]
 .venv/
-backend/__pycache__/
 backend/dist/
 backend/build/
-*.pyc
+*.spec
 
-# Frontend
-frontend/node_modules/
+# Node
+node_modules/
 frontend/.webpack/
-frontend/main.bundle.js
-frontend/main.bundle.js.map
-frontend/release/
+frontend/out/
 
-# IDE / OS
-.idea/
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
 *.log
+npm-debug.log*

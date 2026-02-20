@@ -1,4 +1,4 @@
-"""Launcher for PyInstaller: run the Strata backend (FastAPI) with uvicorn."""
+"""Launcher for the Strata backend (FastAPI) with uvicorn. Run from repo root: python -m backend.run_backend"""
 import uvicorn
 from backend.main import app
 
