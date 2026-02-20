@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useStore } from './store';
@@ -9,7 +9,6 @@ import BackgroundGrid from './BackgroundGrid';
 
 const NODE_LIMIT = 200;
 const INITIAL_DISPLAY_COUNT = 50;
-const TEXTURE_CAP = 50;
 
 function buildLayout(nodes) {
   const positions = {};
@@ -19,23 +18,6 @@ function buildLayout(nodes) {
     positions[node.id] = [col * 3 - 30, row * -2.5 + 10, 0];
   });
   return positions;
-}
-
-function getNodeColor(type, isSelected, hasFired) {
-  if (isSelected) return '#FFFFFF';
-  if (!hasFired) {
-    const t = type?.toLowerCase() || '';
-    if (t.includes('conv')) return '#2a2a2a';
-    if (t.includes('sigmoid') || t.includes('mul')) return '#1e1e1e';
-    if (t.includes('concat') || t.includes('add')) return '#252525';
-    if (t.includes('resize') || t.includes('upsample')) return '#1a1a1a';
-    return '#222222';
-  }
-  const t = type?.toLowerCase() || '';
-  if (t.includes('conv')) return '#FFFFFF';
-  if (t.includes('sigmoid') || t.includes('mul')) return '#CCCCCC';
-  if (t.includes('concat')) return '#AAAAAA';
-  return '#BBBBBB';
 }
 
 function makeTextTexture(line1, line2) {
@@ -51,7 +33,7 @@ function makeTextTexture(line1, line2) {
   ctx.fillText((line1 || 'OP').slice(0, 14), 128, 50);
   ctx.fillStyle = '#444444';
   ctx.font = '16px monospace';
-  ctx.fillText((line2 || '').slice(0, 22), 128, 85);
+  ctx.fillText((line2 || '').slice(0, 20), 128, 85);
   return new THREE.CanvasTexture(canvas);
 }
 
@@ -120,8 +102,7 @@ function makeTensorTexture(outputTensor, outputShape) {
   return new THREE.CanvasTexture(canvas);
 }
 
-function GraphNode({ node, position, isSelected, hasFired, record, onSelect, hasTexture, getTexture }) {
-  const texture = hasTexture && getTexture ? getTexture(node, record) : null;
+function GraphNode({ node, position, isSelected, hasData, onSelect, labelTexture }) {
   const selectNode = (e) => {
     e.stopPropagation();
     onSelect(node.id);
@@ -131,15 +112,21 @@ function GraphNode({ node, position, isSelected, hasFired, record, onSelect, has
     <group position={position}>
       <mesh position={[0, 0, 0.06]} onPointerDown={selectNode}>
         <planeGeometry args={[2.9, 1.3]} />
-        {texture ? (
-          <meshBasicMaterial map={texture} transparent={false} />
+        {labelTexture ? (
+          <meshBasicMaterial map={labelTexture} transparent={false} />
         ) : (
           <meshBasicMaterial color="#111111" />
         )}
       </mesh>
+      {hasData && (
+        <mesh position={[1.2, 0.55, 0.12]} onPointerDown={selectNode}>
+          <circleGeometry args={[0.06, 16]} />
+          <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+      )}
       <mesh position={[0, 0, -0.06]} onPointerDown={selectNode}>
         <boxGeometry args={[3, 1.4, 0.12]} />
-        <meshBasicMaterial color="#111111" />
+        <meshBasicMaterial color={isSelected ? '#FFFFFF' : '#111111'} />
       </mesh>
     </group>
   );
@@ -181,10 +168,8 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
   const selectedLayerId = useStore((state) => state.selectedLayerId);
   const setSelectedLayer = useStore((state) => state.setSelectedLayer);
   const inferenceCache = useStore((state) => state.inferenceCache);
-  const layerOrder = useStore((state) => state.layerOrder);
   const controlsRef = useRef(null);
-  const textureCache = useRef({});
-  const [textureVisibleSet, setTextureVisibleSet] = useState(() => new Set());
+  const labelTextureCache = useRef({});
 
   const visibleNodes = useMemo(
     () =>
@@ -194,58 +179,16 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
     [nodes, showAllNodes]
   );
   const visibleIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
-  const firedSet = useMemo(() => new Set(layerOrder), [layerOrder]);
 
-  const textureVisibleIds = useMemo(() => {
-    if (visibleNodes.length <= TEXTURE_CAP) return new Set(visibleIds);
-    return new Set(visibleNodes.slice(0, TEXTURE_CAP).map((n) => n.id));
-  }, [visibleNodes, visibleIds]);
-
-  useFrame(({ camera }) => {
-    const camY = camera.position.y;
-    const nearby = new Set(
-      visibleNodes.filter((_, i) => {
-        const row = Math.floor(i / 20);
-        const nodeY = row * -2.5 + 10;
-        return Math.abs(nodeY - camY) < 25;
-      }).map((n) => n.id)
-    );
-    setTextureVisibleSet((prev) => {
-      if (prev.size !== nearby.size || [...prev].some((id) => !nearby.has(id))) return nearby;
-      return prev;
-    });
-  });
-
-  useEffect(() => {
-    if (Object.keys(inferenceCache).length === 0) {
-      Object.values(textureCache.current).forEach((t) => t && t.dispose && t.dispose());
-      textureCache.current = {};
-    }
-  }, [inferenceCache]);
-
-  const getTexture = useCallback((node, record) => {
-    const hasFired = record?.output_tensor != null && record?.output_shape?.length;
-    const key = `${node.id}-${hasFired ? 'fired' : 'label'}`;
-    if (textureCache.current[key]) return textureCache.current[key];
-    let tex;
-    if (hasFired && record?.output_tensor != null && record?.output_shape?.length) {
-      tex = makeTensorTexture(record.output_tensor, record.output_shape);
-    } else {
-      tex = makeTextTexture(
-        node.type?.toUpperCase() || 'OP',
-        node.name?.split('/').pop()?.slice(0, 20) || ''
-      );
-    }
-    if (tex) textureCache.current[key] = tex;
+  const getLabelTexture = useCallback((node) => {
+    const key = node.id;
+    if (labelTextureCache.current[key]) return labelTextureCache.current[key];
+    const line1 = node.type?.toUpperCase() ?? 'OP';
+    const line2 = node.name?.split('/').pop()?.slice(0, 20) ?? '';
+    const tex = makeTextTexture(line1, line2);
+    if (tex) labelTextureCache.current[key] = tex;
     return tex;
   }, []);
-
-  const showTextureSet = useMemo(() => {
-    const s = new Set();
-    textureVisibleIds.forEach((id) => s.add(id));
-    textureVisibleSet.forEach((id) => s.add(id));
-    return s;
-  }, [textureVisibleIds, textureVisibleSet]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -319,11 +262,9 @@ function Scene({ nodes, edges, positions, showAllNodes }) {
             node={node}
             position={pos}
             isSelected={selectedLayerId === node.id}
-            hasFired={firedSet.has(node.id)}
-            record={record}
+            hasData={record != null}
             onSelect={setSelectedLayer}
-            hasTexture={showTextureSet.has(node.id)}
-            getTexture={getTexture}
+            labelTexture={getLabelTexture(node)}
           />
         );
       })}
