@@ -27,28 +27,39 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm ci
 
-      - name: Copy backend into frontend src
-        run: |
-          mkdir -p frontend/src/backend
-          cp backend/*.py frontend/src/backend/
-          cp backend/requirements.txt frontend/src/backend/
-        shell: bash
-
-      - name: Verify backend files
-        run: ls -la frontend/src/backend/
-        shell: bash
-
       - name: Make Electron app (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: cd frontend && npm run make
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Inject backend into package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          PKG_DIR=$(find frontend/out/make -name "strata-linux-x64" -type d | head -1)
+          echo "Package dir: $PKG_DIR"
+          mkdir -p "$PKG_DIR/resources/backend"
+          cp backend/*.py "$PKG_DIR/resources/backend/"
+          cp backend/requirements.txt "$PKG_DIR/resources/backend/"
+          ls -la "$PKG_DIR/resources/backend/"
+        shell: bash
+
       - name: Make Electron app (Windows)
         if: matrix.os == 'windows-latest'
         run: cd frontend && npm run make -- --targets @electron-forge/maker-zip
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inject backend into package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $pkgDir = Get-ChildItem -Path frontend/out/make -Recurse -Directory -Filter "strata-win32-x64" | Select-Object -First 1 -ExpandProperty FullName
+          Write-Host "Package dir: $pkgDir"
+          New-Item -ItemType Directory -Force -Path "$pkgDir/resources/backend"
+          Copy-Item backend/*.py "$pkgDir/resources/backend/"
+          Copy-Item backend/requirements.txt "$pkgDir/resources/backend/"
+          Get-ChildItem "$pkgDir/resources/backend/"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
