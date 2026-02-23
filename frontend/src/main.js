@@ -84,8 +84,12 @@ function startBackend(mainWindow) {
     }
   }
 
-  backendProcess = spawn(python, ['-m', 'uvicorn', 'main:app', '--port', '8000', '--log-level', 'info'], {
-    cwd: backendDir,
+  backendProcess = spawn(python, [
+    '-m', 'uvicorn', 'backend.main:app',
+    '--port', '8000',
+    '--log-level', 'info'
+  ], {
+    cwd: path.dirname(backendDir),
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
