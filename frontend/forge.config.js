@@ -1,7 +1,10 @@
 module.exports = {
   packagerConfig: {
     asar: true,
-    extraResource: []
+    extraResource: [
+      './resources/strata_backend',
+      './resources/strata_backend.exe'
+    ]
   },
   rebuildConfig: {},
   makers: [
