@@ -14,18 +14,40 @@ function log(msg) {
   console.log(msg);
 }
 
-function getPythonPath() {
-  const candidates = process.platform === 'win32'
-    ? ['python', 'python3', 'py']
-    : ['python3', 'python'];
+const venvDir = path.join(app.getPath('userData'), 'strata-venv');
+const venvPython = process.platform === 'win32'
+  ? path.join(venvDir, 'Scripts', 'python.exe')
+  : path.join(venvDir, 'bin', 'python');
 
-  for (const candidate of candidates) {
+function getPython311() {
+  const candidates = process.platform === 'win32'
+    ? ['python3.11', 'python3', 'python', 'py']
+    : ['python3.11', 'python3.11', 'python3', 'python'];
+  for (const c of candidates) {
     try {
-      const version = execSync(`${candidate} --version 2>&1`).toString();
-      if (version.includes('3.')) return candidate;
+      const out = execSync(`${c} --version 2>&1`).toString();
+      if (out.includes('3.11') || out.includes('3.10') || out.includes('3.12')) return c;
     } catch (e) {}
   }
+  try { execSync('python3 --version'); return 'python3'; } catch (e) {}
   return null;
+}
+
+function setupVenv(python) {
+  if (!fs.existsSync(venvPython)) {
+    log('Creating venv...');
+    const r = spawnSync(python, ['-m', 'venv', venvDir], { encoding: 'utf8', timeout: 60000 });
+    if (r.status !== 0) { log('venv creation failed: ' + r.stderr); return false; }
+    log('Venv created');
+  }
+  const reqFile = path.join(getBackendDir(), 'requirements.txt');
+  log('Installing deps into venv...');
+  const r = spawnSync(venvPython, ['-m', 'pip', 'install', '-r', reqFile, '--prefer-binary', '--quiet', '--disable-pip-version-check'], {
+    timeout: 300000, maxBuffer: 100 * 1024 * 1024, encoding: 'utf8'
+  });
+  if (r.status !== 0) { log('pip failed: ' + r.stderr); return false; }
+  log('Deps installed successfully');
+  return true;
 }
 
 function getBackendDir() {
@@ -50,71 +72,31 @@ function showPythonMissingDialog(mainWindow) {
 }
 
 function startBackend(mainWindow) {
-  const python = getPythonPath();
-  const backendDir = getBackendDir();
-  const mainPy = path.join(backendDir, 'main.py');
+  const python = getPython311();
+  if (!python) { showPythonMissingDialog(mainWindow); return; }
+  log('System python: ' + python);
 
-  log(`Python: ${python}`);
-  log(`Backend dir: ${backendDir}`);
-  log(`main.py exists: ${fs.existsSync(mainPy)}`);
-
-  if (!python) {
-    showPythonMissingDialog(mainWindow);
+  if (!setupVenv(python)) {
+    mainWindow.show();
     return;
   }
 
-  if (app.isPackaged) {
-    const reqFile = path.join(backendDir, 'requirements.txt');
-    log('Installing backend dependencies...');
-    const result = spawnSync(python, [
-      '-m', 'pip', 'install',
-      '-r', reqFile,
-      '--prefer-binary',
-      '--quiet',
-      '--disable-pip-version-check'
-    ], {
-      timeout: 300000,
-      maxBuffer: 100 * 1024 * 1024,
-      encoding: 'utf8'
-    });
-    if (result.status !== 0) {
-      log(`pip install failed: ${result.stderr}`);
-    } else {
-      log('Dependencies installed successfully');
-    }
-  }
-
-  backendProcess = spawn(python, [
-    '-m', 'uvicorn', 'backend.main:app',
-    '--port', '8000',
-    '--log-level', 'info'
-  ], {
+  const backendDir = getBackendDir();
+  backendProcess = spawn(venvPython, ['-m', 'uvicorn', 'backend.main:app', '--port', '8000', '--log-level', 'info'], {
     cwd: path.dirname(backendDir),
     stdio: ['ignore', 'pipe', 'pipe']
   });
 
   backendProcess.stdout.on('data', (data) => {
     const out = data.toString();
-    log(`[backend] ${out}`);
+    log('[backend] ' + out);
     if (out.includes('Application startup complete') || out.includes('Strata backend ready')) {
       mainWindow.show();
     }
   });
-
-  backendProcess.stderr.on('data', (data) => {
-    log(`[backend error] ${data.toString()}`);
-  });
-
-  backendProcess.on('error', (err) => {
-    log(`[backend spawn error] ${err.message}`);
-    mainWindow.show();
-  });
-
-  backendProcess.on('exit', (code, signal) => {
-    backendProcess = null;
-  });
-
-  setTimeout(() => mainWindow.show(), 20000);
+  backendProcess.stderr.on('data', (data) => { log('[backend error] ' + data.toString()); });
+  backendProcess.on('error', (err) => { log('[spawn error] ' + err.message); mainWindow.show(); });
+  setTimeout(() => mainWindow.show(), 30000);
 }
 
 function createWindow() {
