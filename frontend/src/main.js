@@ -69,11 +69,12 @@ function startBackend(mainWindow) {
     const result = spawnSync(python, [
       '-m', 'pip', 'install',
       '-r', reqFile,
+      '--prefer-binary',
       '--quiet',
       '--disable-pip-version-check'
     ], {
       timeout: 300000,
-      maxBuffer: 100 * 1024 * 1024, // 100MB
+      maxBuffer: 100 * 1024 * 1024,
       encoding: 'utf8'
     });
     if (result.status !== 0) {
