@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { app, BrowserWindow, ipcMain, dialog, clipboard, session, shell } = require('electron');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, spawnSync } = require('child_process');
 
 let mainWindow = null;
 let backendProcess = null;
@@ -64,15 +64,22 @@ function startBackend(mainWindow) {
   }
 
   if (app.isPackaged) {
-    try {
-      const reqFile = path.join(backendDir, 'requirements.txt');
-      log('Installing backend dependencies...');
-      execSync(`${python} -m pip install -r "${reqFile}" --quiet`, {
-        timeout: 120000
-      });
-      log('Dependencies installed');
-    } catch (e) {
-      log(`pip install failed: ${e.message}`);
+    const reqFile = path.join(backendDir, 'requirements.txt');
+    log('Installing backend dependencies...');
+    const result = spawnSync(python, [
+      '-m', 'pip', 'install',
+      '-r', reqFile,
+      '--quiet',
+      '--disable-pip-version-check'
+    ], {
+      timeout: 300000,
+      maxBuffer: 100 * 1024 * 1024, // 100MB
+      encoding: 'utf8'
+    });
+    if (result.status !== 0) {
+      log(`pip install failed: ${result.stderr}`);
+    } else {
+      log('Dependencies installed successfully');
     }
   }
 
