@@ -30,7 +30,7 @@ function getPythonPath() {
 
 function getBackendDir() {
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'backend');
+    return path.join(path.dirname(app.getAppPath()), 'backend');
   }
   return path.join(__dirname, '../../backend');
 }

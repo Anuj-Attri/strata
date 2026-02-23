@@ -27,11 +27,15 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm ci
 
-      - name: Copy backend into frontend resources
+      - name: Copy backend into frontend src
         run: |
-          mkdir -p frontend/resources/backend
-          cp -r backend/*.py frontend/resources/backend/
-          cp backend/requirements.txt frontend/resources/backend/
+          mkdir -p frontend/src/backend
+          cp backend/*.py frontend/src/backend/
+          cp backend/requirements.txt frontend/src/backend/
+        shell: bash
+
+      - name: Verify backend files
+        run: ls -la frontend/src/backend/
         shell: bash
 
       - name: Make Electron app (Linux)

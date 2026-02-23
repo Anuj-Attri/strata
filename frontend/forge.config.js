@@ -1,9 +1,7 @@
 module.exports = {
   packagerConfig: {
-    asar: true,
-    extraResource: [
-      './resources/backend'
-    ]
+    asar: false,
+    extraResource: []
   },
   rebuildConfig: {},
   makers: [
