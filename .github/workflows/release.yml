@@ -36,18 +36,22 @@ jobs:
       - name: Inject backend into package (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          echo "=== Contents of frontend/out/make ==="
-          find frontend/out/make -type d
-          echo "=== Looking for package dir ==="
-          PKG_DIR=$(find frontend/out/make -type d | grep -E "strata-linux-x64$" | head -1)
-          if [ -z "$PKG_DIR" ]; then
-            PKG_DIR=$(find frontend/out/make -mindepth 3 -maxdepth 4 -type d | grep -v "\.app" | tail -1)
-          fi
-          echo "Package dir: $PKG_DIR"
-          mkdir -p "$PKG_DIR/resources/backend"
-          cp backend/*.py "$PKG_DIR/resources/backend/"
-          cp backend/requirements.txt "$PKG_DIR/resources/backend/"
-          ls -la "$PKG_DIR/resources/backend/"
+          cd frontend/out/make/zip/linux/x64
+          ls -la
+          ZIP_FILE=$(ls *.zip | head -1)
+          echo "Zip file: $ZIP_FILE"
+          unzip "$ZIP_FILE" -d extracted
+          ls extracted/
+          mkdir -p extracted/strata-linux-x64/resources/backend
+          cp ../../../../../backend/*.py extracted/strata-linux-x64/resources/backend/
+          cp ../../../../../backend/requirements.txt extracted/strata-linux-x64/resources/backend/
+          ls -la extracted/strata-linux-x64/resources/backend/
+          rm "$ZIP_FILE"
+          cd extracted
+          zip -r "../$ZIP_FILE" .
+          cd ..
+          rm -rf extracted
+          echo "Done. Final zip: $ZIP_FILE"
         shell: bash
 
       - name: Make Electron app (Windows)
