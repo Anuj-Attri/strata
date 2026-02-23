@@ -36,7 +36,13 @@ jobs:
       - name: Inject backend into package (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          PKG_DIR=$(find frontend/out/make -name "strata-linux-x64" -type d | head -1)
+          echo "=== Contents of frontend/out/make ==="
+          find frontend/out/make -type d
+          echo "=== Looking for package dir ==="
+          PKG_DIR=$(find frontend/out/make -type d | grep -E "strata-linux-x64$" | head -1)
+          if [ -z "$PKG_DIR" ]; then
+            PKG_DIR=$(find frontend/out/make -mindepth 3 -maxdepth 4 -type d | grep -v "\.app" | tail -1)
+          fi
           echo "Package dir: $PKG_DIR"
           mkdir -p "$PKG_DIR/resources/backend"
           cp backend/*.py "$PKG_DIR/resources/backend/"
