@@ -43,8 +43,8 @@ jobs:
           unzip "$ZIP_FILE" -d extracted
           ls extracted/
           mkdir -p extracted/strata-linux-x64/resources/backend
-          cp ../../../../../backend/*.py extracted/strata-linux-x64/resources/backend/
-          cp ../../../../../backend/requirements.txt extracted/strata-linux-x64/resources/backend/
+          cp $GITHUB_WORKSPACE/backend/*.py extracted/strata-linux-x64/resources/backend/
+          cp $GITHUB_WORKSPACE/backend/requirements.txt extracted/strata-linux-x64/resources/backend/
           ls -la extracted/strata-linux-x64/resources/backend/
           rm "$ZIP_FILE"
           cd extracted
