@@ -1,11 +1,8 @@
-const path = require('path')
-
 module.exports = {
   packagerConfig: {
     asar: true,
     extraResource: [
-      path.resolve(__dirname, 'resources', 'strata_backend'),
-      path.resolve(__dirname, 'resources', 'strata_backend.exe')
+      './resources/backend'
     ]
   },
   rebuildConfig: {},

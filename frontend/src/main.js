@@ -1,78 +1,108 @@
 const path = require('path');
-const { app, BrowserWindow, ipcMain, dialog, clipboard, session } = require('electron');
-const { spawn } = require('child_process');
+const fs = require('fs');
+const { app, BrowserWindow, ipcMain, dialog, clipboard, session, shell } = require('electron');
+const { spawn, execSync } = require('child_process');
 
 let mainWindow = null;
 let backendProcess = null;
-let windowShown = false;
 
-function getBackendPath() {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'strata_backend');
-  }
-  return path.join(__dirname, '../../backend/dist/strata_backend');
+const logPath = path.join(app.getPath('userData'), 'strata-startup.log');
+const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  logStream.write(line);
+  console.log(msg);
 }
 
-function showWindowIfReady() {
-  if (windowShown || !mainWindow || mainWindow.isDestroyed()) return;
-  windowShown = true;
-  mainWindow.show();
+function getPythonPath() {
+  const candidates = process.platform === 'win32'
+    ? ['python', 'python3', 'py']
+    : ['python3', 'python'];
+
+  for (const candidate of candidates) {
+    try {
+      const version = execSync(`${candidate} --version 2>&1`).toString();
+      if (version.includes('3.')) return candidate;
+    } catch (e) {}
+  }
+  return null;
 }
 
-function startBackend() {
+function getBackendDir() {
   if (app.isPackaged) {
-    const backendPath = getBackendPath();
-    backendProcess = spawn(backendPath, [], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, PYTHONUNBUFFERED: '1' },
-    });
-  } else {
-    const repoRoot = path.join(__dirname, '../../..');
-    const fs = require('fs');
-    const venvUvicorn = path.join(repoRoot, '.venv', 'bin', 'uvicorn');
-    const uvicornCmd = fs.existsSync(venvUvicorn) ? venvUvicorn : 'uvicorn';
-    backendProcess = spawn(uvicornCmd, ['backend.main:app', '--host', '127.0.0.1', '--port', '8000'], {
-      cwd: repoRoot,
-      env: { ...process.env },
-      shell: uvicornCmd === 'uvicorn',
-    });
+    return path.join(process.resourcesPath, 'backend');
+  }
+  return path.join(__dirname, '../../backend');
+}
+
+function showPythonMissingDialog(mainWindow) {
+  dialog.showMessageBox({
+    type: 'error',
+    title: 'Python Not Found',
+    message: 'Strata requires Python 3.x to run the backend.',
+    detail: 'Please install Python 3.11 from python.org and relaunch Strata.',
+    buttons: ['Download Python', 'Cancel'],
+    defaultId: 0
+  }).then(({ response }) => {
+    if (response === 0) shell.openExternal('https://www.python.org/downloads/');
+    mainWindow.show();
+  });
+}
+
+function startBackend(mainWindow) {
+  const python = getPythonPath();
+  const backendDir = getBackendDir();
+  const mainPy = path.join(backendDir, 'main.py');
+
+  log(`Python: ${python}`);
+  log(`Backend dir: ${backendDir}`);
+  log(`main.py exists: ${fs.existsSync(mainPy)}`);
+
+  if (!python) {
+    showPythonMissingDialog(mainWindow);
+    return;
   }
 
-  let buffer = '';
-  backendProcess.stdout.setEncoding('utf8');
+  if (app.isPackaged) {
+    try {
+      const reqFile = path.join(backendDir, 'requirements.txt');
+      log('Installing backend dependencies...');
+      execSync(`${python} -m pip install -r "${reqFile}" --quiet`, {
+        timeout: 120000
+      });
+      log('Dependencies installed');
+    } catch (e) {
+      log(`pip install failed: ${e.message}`);
+    }
+  }
+
+  backendProcess = spawn(python, ['-m', 'uvicorn', 'main:app', '--port', '8000', '--log-level', 'info'], {
+    cwd: backendDir,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+
   backendProcess.stdout.on('data', (data) => {
-    const line = data.toString();
-    console.log('[backend]', line);
-    buffer += line;
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-    for (const l of lines) {
-      if (l.includes('Strata backend ready') && !windowShown) {
-        showWindowIfReady();
-      }
+    const out = data.toString();
+    log(`[backend] ${out}`);
+    if (out.includes('Application startup complete') || out.includes('Strata backend ready')) {
+      mainWindow.show();
     }
   });
 
-  backendProcess.stderr.setEncoding('utf8');
   backendProcess.stderr.on('data', (data) => {
-    console.error('[backend err]', data.toString());
+    log(`[backend error] ${data.toString()}`);
   });
 
   backendProcess.on('error', (err) => {
-    console.error('Backend spawn error:', err);
+    log(`[backend spawn error] ${err.message}`);
+    mainWindow.show();
   });
 
   backendProcess.on('exit', (code, signal) => {
     backendProcess = null;
   });
 
-  if (!app.isPackaged) {
-    setTimeout(() => {
-      if (!windowShown && mainWindow && !mainWindow.isDestroyed()) {
-        showWindowIfReady();
-      }
-    }, 10000);
-  }
+  setTimeout(() => mainWindow.show(), 20000);
 }
 
 function createWindow() {
@@ -98,8 +128,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  startBackend();
   createWindow();
+  startBackend(mainWindow);
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({

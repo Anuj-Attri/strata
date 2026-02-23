@@ -84,6 +84,7 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05);
       z-index: 100;
     }
     nav .wordmark {
@@ -108,6 +109,21 @@
     nav a:hover {
       opacity: 1;
     }
+    nav .btn-download {
+      padding: 10px 24px;
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      color: var(--text);
+      background: transparent;
+      border: 1px solid var(--text);
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    nav .btn-download:hover {
+      background: var(--text);
+      color: var(--bg);
+    }
 
     /* ——— Hero ——— */
     .hero {
@@ -125,6 +141,16 @@
       font-weight: 100;
       letter-spacing: 0.3em;
       margin-bottom: 16px;
+      background: linear-gradient(110deg, #fff 0%, #fff 40%, #888 50%, #fff 60%, #fff 100%);
+      background-size: 200% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      animation: shimmer 4s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
     }
     .hero .tagline {
       font-size: 16px;
@@ -177,6 +203,31 @@
       animation: pulse 2s ease-in-out infinite;
     }
 
+    /* ——— Stats bar ——— */
+    .stats-bar {
+      border-top: 1px solid #111;
+      border-bottom: 1px solid #111;
+      padding: 32px;
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+    .stats-bar .stat {
+      text-align: center;
+    }
+    .stats-bar .stat .label {
+      font-size: 13px;
+      color: var(--text);
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+    .stats-bar .stat .desc {
+      font-size: 11px;
+      color: #555;
+      letter-spacing: 0.05em;
+    }
+
     /* ——— Overview ——— */
     .overview {
       max-width: 640px;
@@ -225,11 +276,13 @@
     }
     .feature-card {
       border: 1px solid var(--border);
+      border-left: 2px solid transparent;
       padding: 40px 32px;
-      transition: border-color 0.2s, transform 0.2s;
+      transition: border-color 0.2s, transform 0.2s, border-left 0.2s;
     }
     .feature-card:hover {
       border-color: #333;
+      border-left: 2px solid #ffffff;
       transform: translateY(-2px);
     }
     .feature-card .num {
@@ -250,6 +303,63 @@
       line-height: 1.8;
     }
 
+    /* ——— How it works ——— */
+    .how-it-works {
+      padding: 80px 24px 100px;
+      max-width: 1100px;
+      margin: 0 auto;
+      border-top: 1px solid var(--border);
+    }
+    .how-it-works .section-label {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .how-steps {
+      display: flex;
+      border: 1px solid #111;
+    }
+    @media (max-width: 700px) {
+      .how-steps {
+        flex-direction: column;
+      }
+    }
+    .how-step {
+      flex: 1;
+      padding: 40px 24px;
+      position: relative;
+      border-right: 1px solid #111;
+    }
+    .how-step:last-child {
+      border-right: none;
+    }
+    @media (max-width: 700px) {
+      .how-step {
+        border-right: none;
+        border-bottom: 1px solid #111;
+      }
+      .how-step:last-child {
+        border-bottom: none;
+      }
+    }
+    .how-step .num {
+      font-size: 48px;
+      font-weight: 100;
+      color: #333;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .how-step h3 {
+      font-size: 14px;
+      font-weight: 200;
+      letter-spacing: 0.2em;
+      margin-bottom: 8px;
+    }
+    .how-step p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
     /* ——— Screenshots ——— */
     .screenshots {
       padding: 80px 24px 100px;
@@ -268,6 +378,19 @@
       .screenshots-grid {
         grid-template-columns: 1fr;
       }
+    }
+    .screenshot-wrap {
+      position: relative;
+    }
+    .screenshot-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: #888;
+      background: rgba(0,0,0,0.8);
+      padding: 4px 8px;
     }
     .screenshot-placeholder {
       aspect-ratio: 16 / 9;
@@ -372,6 +495,18 @@
       color: #444;
       letter-spacing: 0.2em;
     }
+    footer .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    footer .footer-brand .logo {
+      height: 24px;
+      width: auto;
+    }
+    footer .version {
+      color: #333;
+    }
     footer a {
       color: #444;
       text-decoration: none;
@@ -388,7 +523,7 @@
     <a href="#" class="wordmark">STRATA</a>
     <div class="links">
       <a href="https://github.com/Anuj-Attri/strata">GITHUB</a>
-      <a href="#download">DOWNLOAD</a>
+      <a href="#download" class="btn-download">DOWNLOAD</a>
     </div>
   </nav>
 
@@ -402,6 +537,21 @@
         <a href="https://github.com/Anuj-Attri/strata" class="btn btn-secondary">VIEW ON GITHUB</a>
       </div>
       <div class="scroll-indicator" aria-hidden="true"></div>
+    </section>
+
+    <section class="stats-bar" aria-label="Highlights">
+      <div class="stat">
+        <p class="label">OPEN SOURCE</p>
+        <p class="desc">MIT License</p>
+      </div>
+      <div class="stat">
+        <p class="label">LOCAL & PRIVATE</p>
+        <p class="desc">No cloud, no account</p>
+      </div>
+      <div class="stat">
+        <p class="label">ONNX + PYTORCH</p>
+        <p class="desc">All major architectures</p>
+      </div>
     </section>
 
     <section class="overview">
@@ -446,26 +596,53 @@
       </div>
     </section>
 
+    <section class="how-it-works">
+      <p class="section-label">HOW IT WORKS</p>
+      <div class="how-steps">
+        <div class="how-step">
+          <p class="num">01</p>
+          <h3>LOAD</h3>
+          <p>Drop your .pt or .onnx file.</p>
+        </div>
+        <div class="how-step">
+          <p class="num">02</p>
+          <h3>INFER</h3>
+          <p>Run inference on real inputs.</p>
+        </div>
+        <div class="how-step">
+          <p class="num">03</p>
+          <h3>EXPLORE</h3>
+          <p>Click any layer. Inspect tensors, export data.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="screenshots">
       <p class="section-label">INTERFACE</p>
       <div class="screenshots-grid">
         <figure style="margin:0">
-          <img
-            src="screenshots/nodes.png"
-            alt="Strata architecture graph — 367 nodes"
-            style="width:100%; display:block; border:1px solid #111;"
-          />
-          <figcaption style="font-size:11px; color:#444; letter-spacing:0.15em; margin-top:12px; text-align:center;">
+          <div class="screenshot-wrap">
+            <span class="screenshot-badge">ARCHITECTURE GRAPH</span>
+            <img
+              src="screenshots/nodes.png"
+              alt="Strata architecture graph — 367 nodes"
+              style="width:100%; display:block; border:1px solid #111;"
+            />
+          </div>
+          <figcaption class="screenshot-caption" style="text-align:center;">
             ARCHITECTURE GRAPH — 367 NODES
           </figcaption>
         </figure>
         <figure style="margin:0">
-          <img
-            src="screenshots/inference.png"
-            alt="Strata feature map detail panel"
-            style="width:100%; display:block; border:1px solid #111;"
-          />
-          <figcaption style="font-size:11px; color:#444; letter-spacing:0.15em; margin-top:12px; text-align:center;">
+          <div class="screenshot-wrap">
+            <span class="screenshot-badge">LAYER DETAIL</span>
+            <img
+              src="screenshots/inference.png"
+              alt="Strata feature map detail panel"
+              style="width:100%; display:block; border:1px solid #111;"
+            />
+          </div>
+          <figcaption class="screenshot-caption" style="text-align:center;">
             LAYER DETAIL — FEATURE MAP OUTPUT
           </figcaption>
         </figure>
@@ -474,24 +651,30 @@
 
     <section class="download" id="download">
       <p class="section-label">DOWNLOAD</p>
-      <h2>STRATA v0.1.0-BETA</h2>
+      <h2>STRATA v0.1.4-beta</h2>
       <p class="subtext">Early release. Expect rough edges. Feedback welcome.</p>
       <div class="download-cards">
         <div class="download-card">
-          <p class="os">LINUX</p>
-          <p class="formats">.deb — Ubuntu / Debian<br>.AppImage — Universal</p>
-          <a href="https://github.com/Anuj-Attri/strata/releases/tag/v0.1.2-beta" class="btn">DOWNLOAD LINUX</a>
+          <p class="os">WINDOWS</p>
+          <p class="formats">Requires Python 3.x — download from python.org if not installed. The app will install backend dependencies automatically on first launch.</p>
+          <a href="https://github.com/Anuj-Attri/strata/releases/latest" class="btn">DOWNLOAD WINDOWS .zip</a>
         </div>
         <div class="download-card">
-          <p class="os">WINDOWS</p>
-          <p class="formats">.zip — Extract and run</p>
-          <a href="https://github.com/Anuj-Attri/strata/releases/tag/v0.1.2-beta" class="btn">DOWNLOAD WINDOWS</a>
+          <p class="os">LINUX</p>
+          <p class="formats">Requires Python 3.x — sudo apt install python3 python3-pip</p>
+          <a href="https://github.com/Anuj-Attri/strata/releases/latest" class="btn">DOWNLOAD .deb</a>
+          <a href="https://github.com/Anuj-Attri/strata/releases/latest" class="btn" style="margin-left:12px;">DOWNLOAD .AppImage</a>
         </div>
       </div>
     </section>
 
     <footer>
-      <span>STRATA</span>
+      <div class="footer-brand">
+        <svg class="logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span>STRATA <span class="version">v0.1.4-beta</span></span>
+      </div>
       <span>MIT LICENSE</span>
       <a href="https://github.com/Anuj-Attri/strata">GITHUB ↗</a>
     </footer>

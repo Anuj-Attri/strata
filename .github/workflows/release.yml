@@ -20,58 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install backend deps
-        run: pip install -r backend/requirements.txt pyinstaller
-
-      - name: Build backend binary (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cd backend
-          pyinstaller --onefile --name strata_backend \
-            --hidden-import=uvicorn.logging \
-            --hidden-import=uvicorn.loops \
-            --hidden-import=uvicorn.loops.auto \
-            --hidden-import=uvicorn.protocols \
-            --hidden-import=uvicorn.protocols.http \
-            --hidden-import=uvicorn.protocols.http.auto \
-            --hidden-import=uvicorn.protocols.websockets \
-            --hidden-import=uvicorn.protocols.websockets.auto \
-            --hidden-import=uvicorn.lifespan \
-            --hidden-import=uvicorn.lifespan.on \
-            --hidden-import=fastapi \
-            --hidden-import=onnxruntime \
-            --hidden-import=onnx \
-            --hidden-import=transformers \
-            --hidden-import=PIL \
-            main.py
-
-      - name: Build backend binary (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          cd backend
-          pyinstaller --onefile --name strata_backend `
-            --hidden-import=uvicorn.logging `
-            --hidden-import=uvicorn.loops `
-            --hidden-import=uvicorn.loops.auto `
-            --hidden-import=uvicorn.protocols `
-            --hidden-import=uvicorn.protocols.http `
-            --hidden-import=uvicorn.protocols.http.auto `
-            --hidden-import=uvicorn.protocols.websockets `
-            --hidden-import=uvicorn.protocols.websockets.auto `
-            --hidden-import=uvicorn.lifespan `
-            --hidden-import=uvicorn.lifespan.on `
-            --hidden-import=fastapi `
-            --hidden-import=onnxruntime `
-            --hidden-import=onnx `
-            --hidden-import=transformers `
-            --hidden-import=PIL `
-            main.py
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -79,19 +27,12 @@ jobs:
       - name: Install frontend deps
         run: cd frontend && npm ci
 
-      - name: Copy backend binary (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Copy backend into frontend resources
         run: |
-          mkdir -p frontend/resources
-          cp backend/dist/strata_backend frontend/resources/strata_backend
-          chmod +x frontend/resources/strata_backend
-
-      - name: Copy backend binary (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path frontend/resources
-          Copy-Item backend/dist/strata_backend.exe frontend/resources/strata_backend.exe
+          mkdir -p frontend/resources/backend
+          cp -r backend/*.py frontend/resources/backend/
+          cp backend/requirements.txt frontend/resources/backend/
+        shell: bash
 
       - name: Make Electron app (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -112,7 +53,6 @@ jobs:
           path: |
             frontend/out/make/**/*.deb
             frontend/out/make/**/*.AppImage
-            frontend/out/make/**/*.exe
             frontend/out/make/**/*.zip
           if-no-files-found: warn
 
@@ -135,12 +75,12 @@ jobs:
             ### Download
             | Platform | File |
             |----------|------|
-            | Ubuntu/Debian | `.deb` |
-            | Linux | `.AppImage` |
-            | Windows | `.exe` |
+            | Windows | `.zip` — Python 3.x required |
+            | Ubuntu/Debian | `.deb` — Python 3.x required |
+            | Linux | `.AppImage` — Python 3.x required |
 
-            **Linux:** `sudo dpkg -i Strata*.deb` or run `.AppImage` directly (chmod +x first).
-            **Windows:** Run the `.exe` installer. No terminal needed.
+            **Windows:** Extract the .zip and run Strata. Install Python from python.org if needed. Backend deps install on first launch.
+            **Linux:** `sudo dpkg -i Strata*.deb` or run the `.AppImage` (chmod +x first). Python 3 required.
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

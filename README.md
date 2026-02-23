@@ -20,39 +20,32 @@ Strata is an open-source AI model profiling and visualization tool. Load any PyT
 
 ## Install
 
-### End users
+### Requirements
+- Python 3.x — [download from python.org](https://python.org/downloads) if not already installed
+- No other setup needed — Strata installs its own Python dependencies on first launch
 
-Download the installer from [Releases](https://github.com/Anuj-Attri/Strata/releases). Run it. No setup required.
+### Download
 
-- **Linux:** `.deb` or `.AppImage` — install with `sudo dpkg -i Strata*.deb` or run the AppImage (e.g. `chmod +x Strata*.AppImage && ./Strata*.AppImage`).
-- **Windows:** Run the `.exe` installer.
+Go to the [Releases page](https://github.com/Anuj-Attri/strata/releases/latest):
 
-### Developers
+| Platform | File | Notes |
+|---|---|---|
+| Windows | `.zip` | Extract and run `Strata.exe`. Python required. |
+| Ubuntu/Debian | `.deb` | `sudo dpkg -i Strata*.deb`. Python required. |
+| Linux universal | `.AppImage` | `chmod +x` and run. Python required. |
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/Anuj-Attri/Strata.git
-   cd Strata
-   ```
+On first launch, Strata will automatically install its Python backend dependencies.
+This requires an internet connection the first time only.
 
-2. **Backend (Python)**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate   # Windows: .venv\Scripts\activate
-   pip install -r backend/requirements.txt
-   ```
-
-3. **Frontend (Node)**
-   ```bash
-   cd frontend
-   npm ci
-   ```
-
-4. **Run in dev mode**
-   ```bash
-   npm run dev
-   ```
-   This starts the FastAPI backend and the Electron app. Load a model from the UI.
+### Run from source
+```bash
+git clone https://github.com/Anuj-Attri/strata.git
+cd strata
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r backend/requirements.txt
+cd frontend && npm install && npm run dev
+```
 
 ---
 
